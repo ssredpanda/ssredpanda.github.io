@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>メモ</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='4' y='2' width='24' height='28' rx='1' fill='%23ffffff' stroke='%23333333' stroke-width='1.5'/%3E%3C/svg%3E">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+        }
+
+        textarea {
+            width: 100%;
+            height: 100%;
+            border: none;
+            outline: none;
+            resize: none;
+            font-size: 16px;
+            line-height: 1.6;
+            padding: 20px;
+            background: #fff;
+            color: #333;
+            transition: background 0.3s, color 0.3s, font-family 0.2s;
+        }
+
+        textarea.font-sans {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+        }
+
+        textarea.font-mono {
+            font-family: 'SF Mono', Monaco, 'Courier New', Courier, monospace;
+        }
+
+        textarea.font-serif {
+            font-family: 'Hiragino Mincho ProN', 'Yu Mincho', 'YuMincho', 'HG Mincho E', 'MS Mincho', 'MS PMincho', serif;
+        }
+
+        textarea.dark {
+            background: #1a1a1a;
+            color: #e0e0e0;
+        }
+
+        textarea::placeholder {
+            color: #aaa;
+        }
+
+        textarea.dark::placeholder {
+            color: #666;
+        }
+
+        /* トースト通知 */
+        #toast {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 14px;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.3s, transform 0.3s;
+            pointer-events: none;
+            z-index: 1000;
+            white-space: pre-line;
+            max-width: 400px;
+            text-align: left;
+        }
+
+        #toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        #toast.dark-mode {
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+        }
+
+        /* Markdownプレビュー */
+        #preview {
+            width: 100%;
+            height: 100%;
+            padding: 20px;
+            overflow-y: auto;
+            background: #fff;
+            color: #333;
+            display: none;
+            line-height: 1.6;
+        }
+
+        #preview.show {
+            display: block;
+        }
+
+        #preview.dark {
+            background: #1a1a1a;
+            color: #e0e0e0;
+        }
+
+        #preview h1 { font-size: 2em; margin: 0.67em 0; font-weight: bold; }
+        #preview h2 { font-size: 1.5em; margin: 0.75em 0; font-weight: bold; }
+        #preview h3 { font-size: 1.17em; margin: 0.83em 0; font-weight: bold; }
+        #preview h4 { font-size: 1em; margin: 1em 0; font-weight: bold; }
+        #preview h5 { font-size: 0.83em; margin: 1.17em 0; font-weight: bold; }
+        #preview h6 { font-size: 0.67em; margin: 1.33em 0; font-weight: bold; }
+        
+        #preview p { margin: 1em 0; }
+        #preview ul, #preview ol { margin: 1em 0; padding-left: 2em; }
+        #preview li { margin: 0.5em 0; }
+        #preview code { 
+            background: #f4f4f4; 
+            padding: 2px 6px; 
+            border-radius: 3px;
+            font-family: 'SF Mono', Monaco, 'Courier New', Courier, monospace;
+        }
+        #preview.dark code {
+            background: #2a2a2a;
+        }
+        #preview pre { 
+            background: #f4f4f4; 
+            padding: 12px; 
+            border-radius: 5px;
+            overflow-x: auto;
+            margin: 1em 0;
+        }
+        #preview.dark pre {
+            background: #2a2a2a;
+        }
+        #preview pre code {
+            background: transparent;
+            padding: 0;
+        }
+        #preview blockquote {
+            border-left: 4px solid #ddd;
+            padding-left: 1em;
+            margin: 1em 0;
+            color: #666;
+        }
+        #preview.dark blockquote {
+            border-left-color: #555;
+            color: #aaa;
+        }
+        #preview hr {
+            border: none;
+            border-top: 2px solid #ddd;
+            margin: 2em 0;
+        }
+        #preview.dark hr {
+            border-top-color: #555;
+        }
+        #preview a {
+            color: #0066cc;
+            text-decoration: underline;
+        }
+        #preview.dark a {
+            color: #4a9eff;
+        }
+        #preview strong { font-weight: bold; }
+        #preview em { font-style: italic; }
+        
+        /* テーブルスタイル */
+        #preview table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 1em 0;
+            font-size: 0.95em;
+        }
+        #preview table th,
+        #preview table td {
+            border: 1px solid #ddd;
+            padding: 8px 12px;
+            text-align: left;
+        }
+        #preview table th {
+            background: #f4f4f4;
+            font-weight: bold;
+        }
+        #preview.dark table th,
+        #preview.dark table td {
+            border-color: #555;
+        }
+        #preview.dark table th {
+            background: #2a2a2a;
+        }
+        #preview table tr:nth-child(even) {
+            background: #f9f9f9;
+        }
+        #preview.dark table tr:nth-child(even) {
+            background: #252525;
+        }
+        #preview table tr:hover {
+            background: #f0f0f0;
+        }
+        #preview.dark table tr:hover {
+            background: #333;
+        }
+    </style>
+</head>
+<body>
+    <textarea id="memo" placeholder="さあ、メモを書こう（裏にも書けるよ！）
+
+Ctrl + Shift + B : 紙を裏返す（表 ⇄ 裏）
+Ctrl + Shift + D : ダークモード切り替え
+Ctrl + Shift + F : フォント切り替え（ゴシック / 等幅 / 明朝）
+Ctrl + Shift + T : タイムスタンプ挿入
+Ctrl + Shift + S : テキストをダウンロード
+Ctrl + Shift + K : メモを全部消す
+Ctrl + Shift + P : プレビュー（Markdown, CSV自動検出）
+Ctrl + Shift + H : ヘルプ表示" autofocus></textarea>
+
+    <div id="preview"></div>
+    <div id="toast"></div>
+
+    <script>
+        const memoTextarea = document.getElementById('memo');
+        const preview = document.getElementById('preview');
+        const toast = document.getElementById('toast');
+        const STORAGE_KEY_FRONT = 'memo_front';
+        const STORAGE_KEY_BACK = 'memo_back';
+        const CURRENT_SIDE_KEY = 'memo_current_side';
+        const THEME_KEY = 'memoTheme';
+        const FONT_KEY = 'memoFont';
+
+        const fonts = ['font-sans', 'font-mono', 'font-serif'];
+        const fontNames = ['ゴシック体', '等幅フォント', '明朝体'];
+        let currentFontIndex = 0;
+        let isPreviewMode = false;
+        let currentSide = 'front'; // 'front' or 'back'
+
+        // トースト通知を表示する関数
+        function showToast(message, duration = 2000) {
+            toast.textContent = message;
+            
+            // ダークモードの場合はトーストも調整
+            if (memoTextarea.classList.contains('dark') || preview.classList.contains('dark')) {
+                toast.classList.add('dark-mode');
+            } else {
+                toast.classList.remove('dark-mode');
+            }
+            
+            toast.classList.add('show');
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, duration);
+        }
+
+        // 表裏を切り替える関数
+        function flipSide() {
+            // 現在の内容を保存
+            const currentKey = currentSide === 'front' ? STORAGE_KEY_FRONT : STORAGE_KEY_BACK;
+            localStorage.setItem(currentKey, memoTextarea.value);
+            
+            // 面を切り替え
+            currentSide = currentSide === 'front' ? 'back' : 'front';
+            localStorage.setItem(CURRENT_SIDE_KEY, currentSide);
+            
+            // 新しい面の内容を読み込み
+            const newKey = currentSide === 'front' ? STORAGE_KEY_FRONT : STORAGE_KEY_BACK;
+            const savedMemo = localStorage.getItem(newKey) || '';
+            memoTextarea.value = savedMemo;
+            
+            // 通知
+            showToast(currentSide === 'front' ? '表' : '裏');
+            
+            // フォーカスを戻す
+            if (!isPreviewMode) {
+                memoTextarea.focus();
+            }
+        }
+
+        // ヘルプを表示する関数
+        function showHelp() {
+            const helpText = `紙（a paper） - ショートカット一覧
+
+Ctrl + Shift + B : 紙を裏返す（表 ⇄ 裏）
+Ctrl + Shift + D : ダークモード切り替え
+Ctrl + Shift + F : フォント切り替え
+Ctrl + Shift + T : タイムスタンプ挿入
+Ctrl + Shift + S : テキストをダウンロード
+Ctrl + Shift + K : 全削除
+Ctrl + Shift + P : プレビュー（Markdown, CSV自動検出）
+Ctrl + Shift + H : ヘルプ表示`;
+            
+            showToast(helpText, 5000);
+        }
+
+        // CSV形式を検出してテーブルに変換
+        function detectAndConvertCSV(text) {
+            const lines = text.split('\n');
+            const csvBlocks = [];
+            let currentBlock = [];
+            let expectedCommas = -1;
+            
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i].trim();
+                
+                if (line === '') {
+                    if (currentBlock.length >= 2) {
+                        csvBlocks.push(currentBlock);
+                    }
+                    currentBlock = [];
+                    expectedCommas = -1;
+                    continue;
+                }
+                
+                const commaCount = (line.match(/,/g) || []).length;
+                
+                if (expectedCommas === -1) {
+                    // 最初の行
+                    if (commaCount > 0) {
+                        expectedCommas = commaCount;
+                        currentBlock.push(line);
+                    }
+                } else if (commaCount === expectedCommas) {
+                    // カンマの数が一致する行
+                    currentBlock.push(line);
+                } else {
+                    // カンマの数が一致しない → CSV終了
+                    if (currentBlock.length >= 2) {
+                        csvBlocks.push(currentBlock);
+                    }
+                    currentBlock = [];
+                    expectedCommas = -1;
+                }
+            }
+            
+            // 最後のブロックをチェック
+            if (currentBlock.length >= 2) {
+                csvBlocks.push(currentBlock);
+            }
+            
+            // CSVブロックをテーブルに変換
+            csvBlocks.forEach(block => {
+                const tableHTML = convertCSVToTable(block);
+                const blockText = block.join('\n');
+                text = text.replace(blockText, tableHTML);
+            });
+            
+            return text;
+        }
+
+        // CSVをテーブルHTMLに変換
+        function convertCSVToTable(lines) {
+            let html = '<table>';
+            
+            lines.forEach((line, index) => {
+                const cells = line.split(',').map(cell => cell.trim());
+                
+                if (index === 0) {
+                    // ヘッダー行
+                    html += '<thead><tr>';
+                    cells.forEach(cell => {
+                        html += `<th>${cell}</th>`;
+                    });
+                    html += '</tr></thead><tbody>';
+                } else {
+                    // データ行
+                    html += '<tr>';
+                    cells.forEach(cell => {
+                        html += `<td>${cell}</td>`;
+                    });
+                    html += '</tr>';
+                }
+            });
+            
+            html += '</tbody></table>';
+            return html;
+        }
+
+        // シンプルなMarkdownパーサー
+        function parseMarkdown(text) {
+            // CSV検出と変換（最初に実行）
+            text = detectAndConvertCSV(text);
+            
+            // エスケープ（テーブルタグは保護）
+            const tables = [];
+            text = text.replace(/<table>[\s\S]*?<\/table>/g, (match) => {
+                tables.push(match);
+                return `__TABLE_${tables.length - 1}__`;
+            });
+            
+            text = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            
+            // テーブルを戻す
+            tables.forEach((table, index) => {
+                text = text.replace(`__TABLE_${index}__`, table);
+            });
+            
+            // コードブロック（```）
+            text = text.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
+            
+            // インラインコード（`）
+            text = text.replace(/`([^`]+)`/g, '<code>$1</code>');
+            
+            // 見出し
+            text = text.replace(/^######\s+(.+)$/gm, '<h6>$1</h6>');
+            text = text.replace(/^#####\s+(.+)$/gm, '<h5>$1</h5>');
+            text = text.replace(/^####\s+(.+)$/gm, '<h4>$1</h4>');
+            text = text.replace(/^###\s+(.+)$/gm, '<h3>$1</h3>');
+            text = text.replace(/^##\s+(.+)$/gm, '<h2>$1</h2>');
+            text = text.replace(/^#\s+(.+)$/gm, '<h1>$1</h1>');
+            
+            // 水平線
+            text = text.replace(/^---$/gm, '<hr>');
+            text = text.replace(/^\*\*\*$/gm, '<hr>');
+            
+            // 太字
+            text = text.replace(/\*\*([^\*]+)\*\*/g, '<strong>$1</strong>');
+            text = text.replace(/__([^_]+)__/g, '<strong>$1</strong>');
+            
+            // 斜体
+            text = text.replace(/\*([^\*]+)\*/g, '<em>$1</em>');
+            text = text.replace(/_([^_]+)_/g, '<em>$1</em>');
+            
+            // リンク
+            text = text.replace(/\[([^\]]+)\]\(([^\)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+            
+            // リスト
+            text = text.replace(/^\*\s+(.+)$/gm, '<li>$1</li>');
+            text = text.replace(/^-\s+(.+)$/gm, '<li>$1</li>');
+            text = text.replace(/^(\d+)\.\s+(.+)$/gm, '<li>$2</li>');
+            text = text.replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>');
+            
+            // 引用
+            text = text.replace(/^>\s+(.+)$/gm, '<blockquote>$1</blockquote>');
+            
+            // 段落
+            text = text.replace(/\n\n/g, '</p><p>');
+            text = '<p>' + text + '</p>';
+            
+            // 空の段落を削除
+            text = text.replace(/<p><\/p>/g, '');
+            text = text.replace(/<p>\s*<\/p>/g, '');
+            
+            return text;
+        }
+
+        // プレビューモード切り替え
+        function togglePreview() {
+            isPreviewMode = !isPreviewMode;
+            
+            if (isPreviewMode) {
+                // プレビューモードに切り替え
+                const markdown = memoTextarea.value;
+                preview.innerHTML = parseMarkdown(markdown);
+                
+                // ダークモードを引き継ぐ
+                if (memoTextarea.classList.contains('dark')) {
+                    preview.classList.add('dark');
+                }
+                
+                memoTextarea.style.display = 'none';
+                preview.classList.add('show');
+                showToast('プレビューモード');
+            } else {
+                // 編集モードに戻る
+                preview.classList.remove('show');
+                memoTextarea.style.display = 'block';
+                memoTextarea.focus();
+                showToast('編集モード');
+            }
+        }
+
+        // ページ読み込み時に保存されたメモを復元
+        window.addEventListener('DOMContentLoaded', () => {
+            // 現在の面を復元
+            const savedSide = localStorage.getItem(CURRENT_SIDE_KEY);
+            if (savedSide) {
+                currentSide = savedSide;
+            }
+            
+            // 該当する面のメモを復元
+            const storageKey = currentSide === 'front' ? STORAGE_KEY_FRONT : STORAGE_KEY_BACK;
+            const savedMemo = localStorage.getItem(storageKey);
+            if (savedMemo) {
+                memoTextarea.value = savedMemo;
+            }
+            
+            // 古いストレージキーからのマイグレーション（互換性のため）
+            const oldMemo = localStorage.getItem('memo');
+            if (oldMemo && !localStorage.getItem(STORAGE_KEY_FRONT)) {
+                localStorage.setItem(STORAGE_KEY_FRONT, oldMemo);
+                localStorage.removeItem('memo');
+            }
+
+            // テーマを復元
+            const savedTheme = localStorage.getItem(THEME_KEY);
+            if (savedTheme === 'dark') {
+                memoTextarea.classList.add('dark');
+                preview.classList.add('dark');
+            }
+
+            // フォントを復元
+            const savedFont = localStorage.getItem(FONT_KEY);
+            if (savedFont) {
+                memoTextarea.classList.add(savedFont);
+                currentFontIndex = fonts.indexOf(savedFont);
+            } else {
+                // デフォルトはゴシック
+                memoTextarea.classList.add('font-sans');
+            }
+        });
+
+        // テキストが変更されたら自動保存
+        memoTextarea.addEventListener('input', () => {
+            const storageKey = currentSide === 'front' ? STORAGE_KEY_FRONT : STORAGE_KEY_BACK;
+            localStorage.setItem(storageKey, memoTextarea.value);
+        });
+
+        // タイムスタンプを挿入する関数
+        function insertTimestamp() {
+            const now = new Date();
+            const timestamp = now.getFullYear() + '/' +
+                            String(now.getMonth() + 1).padStart(2, '0') + '/' +
+                            String(now.getDate()).padStart(2, '0') + ' ' +
+                            String(now.getHours()).padStart(2, '0') + ':' +
+                            String(now.getMinutes()).padStart(2, '0') + ':' +
+                            String(now.getSeconds()).padStart(2, '0');
+            
+            const start = memoTextarea.selectionStart;
+            const end = memoTextarea.selectionEnd;
+            const text = memoTextarea.value;
+            
+            // カーソル位置にタイムスタンプを挿入
+            memoTextarea.value = text.substring(0, start) + timestamp + text.substring(end);
+            
+            // カーソルをタイムスタンプの後ろに移動
+            const newPosition = start + timestamp.length;
+            memoTextarea.selectionStart = newPosition;
+            memoTextarea.selectionEnd = newPosition;
+            
+            // 保存
+            const storageKey = currentSide === 'front' ? STORAGE_KEY_FRONT : STORAGE_KEY_BACK;
+            localStorage.setItem(storageKey, memoTextarea.value);
+        }
+
+        // テキストをダウンロードする関数
+        function downloadText() {
+            const text = memoTextarea.value;
+            if (!text.trim()) {
+                return; // 空の場合はダウンロードしない
+            }
+            
+            // ファイル名に日時を含める
+            const now = new Date();
+            const filename = 'memo_' + 
+                           now.getFullYear() +
+                           String(now.getMonth() + 1).padStart(2, '0') +
+                           String(now.getDate()).padStart(2, '0') + '_' +
+                           String(now.getHours()).padStart(2, '0') +
+                           String(now.getMinutes()).padStart(2, '0') +
+                           '.txt';
+            
+            // Blobを作成してダウンロード
+            const blob = new Blob([text], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // 全削除する関数
+        function clearAll() {
+            const sideName = currentSide === 'front' ? '表面' : '裏面';
+            if (confirm(`${sideName}のメモを消しちゃうよ？`)) {
+                memoTextarea.value = '';
+                const storageKey = currentSide === 'front' ? STORAGE_KEY_FRONT : STORAGE_KEY_BACK;
+                localStorage.removeItem(storageKey);
+                memoTextarea.focus();
+            }
+        }
+
+        // キーボードショートカット
+        document.addEventListener('keydown', (e) => {
+            // Ctrl+Shift+B で紙を裏返す
+            if (e.ctrlKey && e.shiftKey && e.key === 'B') {
+                e.preventDefault();
+                flipSide();
+            }
+
+            // Ctrl+Shift+D でダークモード切り替え
+            if (e.ctrlKey && e.shiftKey && e.key === 'D') {
+                e.preventDefault();
+                memoTextarea.classList.toggle('dark');
+                preview.classList.toggle('dark');
+                
+                // テーマを保存
+                if (memoTextarea.classList.contains('dark')) {
+                    localStorage.setItem(THEME_KEY, 'dark');
+                } else {
+                    localStorage.setItem(THEME_KEY, 'light');
+                }
+            }
+
+            // Ctrl+Shift+F でフォント切り替え
+            if (e.ctrlKey && e.shiftKey && e.key === 'F') {
+                e.preventDefault();
+                
+                // 現在のフォントクラスを削除
+                fonts.forEach(font => memoTextarea.classList.remove(font));
+                
+                // 次のフォントに切り替え
+                currentFontIndex = (currentFontIndex + 1) % fonts.length;
+                const newFont = fonts[currentFontIndex];
+                memoTextarea.classList.add(newFont);
+                
+                // フォントを保存
+                localStorage.setItem(FONT_KEY, newFont);
+                
+                // トースト通知
+                showToast(`フォント: ${fontNames[currentFontIndex]}`);
+            }
+
+            // Ctrl+Shift+T でタイムスタンプ挿入
+            if (e.ctrlKey && e.shiftKey && e.key === 'T') {
+                e.preventDefault();
+                insertTimestamp();
+            }
+
+            // Ctrl+Shift+S でテキストダウンロード
+            if (e.ctrlKey && e.shiftKey && e.key === 'S') {
+                e.preventDefault();
+                downloadText();
+            }
+
+            // Ctrl+Shift+K で全削除
+            if (e.ctrlKey && e.shiftKey && e.key === 'K') {
+                e.preventDefault();
+                clearAll();
+            }
+
+            // Ctrl+Shift+P でMarkdownプレビュー切り替え
+            if (e.ctrlKey && e.shiftKey && e.key === 'P') {
+                e.preventDefault();
+                togglePreview();
+            }
+
+            // Ctrl+Shift+H でヘルプ表示
+            if (e.ctrlKey && e.shiftKey && e.key === 'H') {
+                e.preventDefault();
+                showHelp();
+            }
+        });
+    </script>
+</body>
+</html>

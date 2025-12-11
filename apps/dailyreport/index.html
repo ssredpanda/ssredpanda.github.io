@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>日報アプリ</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .main-content {
+            background: white;
+            border-radius: 4px;
+            padding: 30px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #333;
+            font-size: 1rem;
+        }
+
+        .form-group input[type="date"] {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input[type="date"]:focus {
+            outline: none;
+            border-color: #666;
+        }
+
+        .form-group textarea {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1rem;
+            font-family: inherit;
+            resize: vertical;
+            min-height: 150px;
+            transition: border-color 0.3s;
+        }
+
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #666;
+        }
+
+        #todayWork,
+        #nextWork {
+            min-height: 225px;
+        }
+
+        #concerns {
+            min-height: 60px;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .btn-save {
+            background: #333;
+            color: white;
+            flex: 3;
+        }
+
+        .btn-save:hover {
+            background: #555;
+        }
+
+        .btn-clear {
+            background: #f5f5f5;
+            color: #666;
+            border: 1px solid #ddd;
+            flex: 1;
+        }
+
+        .btn-clear:hover {
+            background: #e8e8e8;
+        }
+
+        .btn-summary {
+            background: #555;
+            color: white;
+            flex: 1;
+        }
+
+        .btn-summary:hover {
+            background: #777;
+        }
+
+        .btn-csv {
+            background: #555;
+            color: white;
+            flex: 1;
+        }
+
+        .btn-csv:hover {
+            background: #777;
+        }
+
+        .btn-purge {
+            background: #8b0000;
+            color: white;
+            flex: 1;
+        }
+
+        .btn-purge:hover {
+            background: #a40000;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: rgba(51, 51, 51, 0.95);
+            color: white;
+            padding: 14px 20px;
+            border-radius: 6px;
+            box-shadow: 0 6px 18px rgba(0,0,0,0.2);
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            pointer-events: none;
+            z-index: 1000;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .history-section {
+            background: white;
+            border-radius: 4px;
+            padding: 30px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            border: 1px solid #e0e0e0;
+        }
+
+        .history-section h2 {
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            color: #333;
+            border-bottom: 2px solid #333;
+            padding-bottom: 10px;
+        }
+
+        .report-item {
+            background: #fafafa;
+            border-radius: 4px;
+            padding: 20px;
+            margin-bottom: 15px;
+            border: 1px solid #e0e0e0;
+            transition: border-color 0.3s;
+        }
+
+        .report-item:hover {
+            border-color: #999;
+        }
+
+        .report-date {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .report-content {
+            margin-bottom: 12px;
+        }
+
+        .report-label {
+            font-weight: 600;
+            color: #555;
+            margin-bottom: 5px;
+        }
+
+        .report-text {
+            color: #333;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            padding-left: 10px;
+        }
+
+        .btn-delete {
+            background: #666;
+            color: white;
+            border: none;
+            padding: 6px 14px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: background-color 0.3s;
+        }
+
+        .btn-delete:hover {
+            background: #888;
+        }
+
+        .btn-edit {
+            background: #333;
+            color: white;
+            border: none;
+            padding: 6px 14px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: background-color 0.3s;
+            margin-right: 10px;
+        }
+
+        .btn-edit:hover {
+            background: #555;
+        }
+
+        .btn-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .no-reports {
+            text-align: center;
+            color: #999;
+            padding: 40px 0;
+            font-size: 1.1rem;
+        }
+
+        .success-message {
+            background: #f5f5f5;
+            color: #333;
+            padding: 12px 20px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: 500;
+            animation: slideDown 0.3s ease-out;
+            display: none;
+            border: 1px solid #ddd;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .success-message.show {
+            display: block;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+
+            .main-content,
+            .history-section {
+                padding: 20px;
+            }
+
+            .button-group {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="main-content">
+            <div class="success-message" id="successMessage">
+                日報を保存しました！
+            </div>
+
+            <form id="reportForm">
+                <input type="hidden" id="editingId" value="">
+                <div class="form-group">
+                    <input type="date" id="reportDate" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="todayWork">今日は何をしましたか？</label>
+                    <textarea id="todayWork" required placeholder="今日の業務内容を記入してください..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="nextWork">次の出勤日は何をしますか？</label>
+                    <textarea id="nextWork" placeholder="次回の予定を記入してください..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="concerns">困りごとや共有したいことはありますか？</label>
+                    <textarea id="concerns" placeholder="相談事項や共有事項があれば記入してください..."></textarea>
+                </div>
+
+                <div class="button-group">
+                    <button type="submit" class="btn btn-save" id="submitBtn">Save</button>
+                    <button type="button" class="btn btn-clear" onclick="cancelEdit()">Cancel</button>
+                </div>
+                <div class="button-group" style="margin-top: 15px;">
+                    <button type="button" class="btn btn-summary" onclick="copyWeeklySummary()">Weekly Summary</button>
+                    <button type="button" class="btn btn-csv" onclick="exportToCSV()">Export CSV</button>
+                    <button type="button" class="btn btn-purge" onclick="purgeOldHistory()">purge history</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="history-section">
+            <div id="reportsList"></div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast"></div>
+
+    <script>
+        let toastTimeoutId = null;
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            if (!toast) {
+                alert(message);
+                return;
+            }
+
+            toast.textContent = message;
+            toast.classList.add('show');
+
+            if (toastTimeoutId) {
+                clearTimeout(toastTimeoutId);
+            }
+
+            toastTimeoutId = setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        // 今日の日付を取得する関数（ローカルタイムゾーン）
+        function getTodayDate() {
+            return formatDateYMD(new Date());
+        }
+
+        function formatDateYMD(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        // ページ読み込み時に今日の日付を設定
+        window.addEventListener('DOMContentLoaded', function() {
+            const today = getTodayDate();
+            document.getElementById('reportDate').value = today;
+            loadReports();
+            
+            // 当日分が存在する場合はその内容をロード、無ければ従来の自動設定
+            const hasTodayReport = loadTodayReportIfExists(today);
+            if (!hasTodayReport) {
+                setTodayWorkFromPrevious(today);
+            }
+            
+            // 年月日の変更イベント
+            document.getElementById('reportDate').addEventListener('change', function() {
+                // 編集モードの場合は自動設定しない
+                if (document.getElementById('editingId').value) {
+                    return;
+                }
+                
+                const selectedDate = this.value;
+                setTodayWorkFromPrevious(selectedDate);
+            });
+        });
+
+        // フォーム送信処理
+        document.getElementById('reportForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const editingId = document.getElementById('editingId').value;
+            const report = {
+                id: editingId ? parseInt(editingId) : Date.now(),
+                date: document.getElementById('reportDate').value,
+                todayWork: document.getElementById('todayWork').value,
+                nextWork: document.getElementById('nextWork').value,
+                concerns: document.getElementById('concerns').value
+            };
+
+            // ローカルストレージから既存のレポートを取得
+            let reports = JSON.parse(localStorage.getItem('dailyReports') || '[]');
+            
+            if (editingId) {
+                // 編集モード：既存のレポートを更新
+                const index = reports.findIndex(r => r.id === report.id);
+                if (index !== -1) {
+                    reports[index] = report;
+                }
+            } else {
+                // 新規作成モード：新しいレポートを追加
+                reports.unshift(report);
+            }
+            
+            // ローカルストレージに保存
+            localStorage.setItem('dailyReports', JSON.stringify(reports));
+            
+            // クリップボードにコピー
+            copyToClipboard(report);
+            
+            // 成功メッセージをトースト表示
+            const toastMessage = editingId
+                ? 'Daily report updated (copied to clipboard).'
+                : 'Daily report saved (copied to clipboard).';
+            showToast(toastMessage);
+            
+            // フォームをクリア（リロード時と同じ挙動）
+            cancelEdit();
+            
+            // レポート一覧を更新
+            loadReports();
+        });
+
+        // Copy the report to the clipboard
+        function copyToClipboard(report) {
+            const concernsText = report.concerns ? report.concerns : '';
+            const text = '■今日は何をしましたか？\n' + 
+                         report.todayWork + '\n' +
+                         '■次の出勤日は何をしますか？\n' + 
+                         report.nextWork + '\n' +
+                         '■困りごとや共有したいことはありますか？\n' + 
+                         concernsText;
+            
+            console.log('クリップボードにコピーするテキスト:');
+            console.log(text);
+            
+            // Clipboard APIを使用してコピー
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(() => {
+                    console.log('クリップボードへのコピー成功');
+                }).catch(err => {
+                    console.error('クリップボードへのコピーに失敗しました:', err);
+                });
+            } else {
+                // フォールバック：古いブラウザ対応
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                textArea.style.position = 'fixed';
+                textArea.style.left = '-9999px';
+                document.body.appendChild(textArea);
+                textArea.select();
+                try {
+                    document.execCommand('copy');
+                    console.log('クリップボードへのコピー成功（フォールバック）');
+                } catch (err) {
+                    console.error('クリップボードへのコピーに失敗しました:', err);
+                }
+                document.body.removeChild(textArea);
+            }
+        }
+
+        // Export reports to CSV
+        function exportToCSV() {
+            const reports = JSON.parse(localStorage.getItem('dailyReports') || '[]');
+            
+            if (reports.length === 0) {
+            showToast('No daily reports to export.');
+            return;
+        }
+            
+            // 日付順に並び替え（古い順）
+            reports.sort((a, b) => {
+                const dateA = new Date(a.date);
+                const dateB = new Date(b.date);
+                return dateA - dateB;
+            });
+            
+            // CSVヘッダー
+            let csv = '\uFEFF'; // BOM（Excel対応）
+            csv += '日付,今日は何をしましたか？,次の出勤日は何をしますか？,困りごとや共有したいことはありますか？\n';
+            
+            // CSVデータ
+            reports.forEach(report => {
+                const date = report.date;
+                const todayWork = '"' + (report.todayWork || '').replace(/"/g, '""') + '"';
+                const nextWork = '"' + (report.nextWork || '').replace(/"/g, '""') + '"';
+                const concerns = '"' + (report.concerns || '').replace(/"/g, '""') + '"';
+                csv += `${date},${todayWork},${nextWork},${concerns}\n`;
+            });
+            
+            // ダウンロード
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `daily-reports_${getTodayDate()}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // 週報をまとめてクリップボードにコピー
+        function copyWeeklySummary() {
+            // 選択された日付を取得（編集中でない場合は今日）
+            const selectedDateStr = document.getElementById('reportDate').value;
+            const selectedDate = new Date(selectedDateStr + 'T00:00:00');
+            
+            // 先週の火曜日を計算
+            const dayOfWeek = selectedDate.getDay(); // 0=日, 1=月, 2=火, ..., 6=土
+            let daysToLastTuesday = (dayOfWeek + 7 - 2) % 7;
+            if (daysToLastTuesday === 0) {
+                daysToLastTuesday = 7;
+            }
+            
+            const lastTuesday = new Date(selectedDate);
+            lastTuesday.setDate(lastTuesday.getDate() - daysToLastTuesday);
+            const lastTuesdayStr = formatDateYMD(lastTuesday);
+            
+            // 先週の火曜日以降の日報を抽出
+            const reports = JSON.parse(localStorage.getItem('dailyReports') || '[]');
+            const filteredReports = reports.filter(report => report.date >= lastTuesdayStr);
+            
+            if (filteredReports.length === 0) {
+            showToast('No matching daily reports.');
+            return;
+        }
+            
+            // 日付順に並び替え（古い順）
+            filteredReports.sort((a, b) => {
+                const dateA = new Date(a.date);
+                const dateB = new Date(b.date);
+                return dateA - dateB;
+            });
+            
+            // テキストを生成
+            let text = '';
+            filteredReports.forEach((report, index) => {
+                if (index > 0) {
+                    text += '\n';
+                }
+                text += formatDate(report.date) + '\n';
+                text += report.todayWork + '\n';
+            });
+            
+            console.log('週報テキスト:');
+            console.log(text);
+            
+            // クリップボードにコピー
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(() => {
+                    showToast(`Copied reports since last Tuesday (${formatDate(lastTuesdayStr)}).`);
+                }).catch(err => {
+                    console.error('クリップボードへのコピーに失敗しました:', err);
+                    showToast('Failed to copy to clipboard.');
+                });
+            } else {
+                // フォールバック
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                textArea.style.position = 'fixed';
+                textArea.style.left = '-9999px';
+                document.body.appendChild(textArea);
+                textArea.select();
+                try {
+                    document.execCommand('copy');
+                    showToast(`Copied reports since last Tuesday (${formatDate(lastTuesdayStr)}).`);
+                } catch (err) {
+                    console.error('クリップボードへのコピーに失敗しました:', err);
+                    showToast('Failed to copy to clipboard.');
+                }
+                document.body.removeChild(textArea);
+            }
+        }
+
+        // 編集をキャンセルしてフォームをクリア
+        function cancelEdit() {
+            document.getElementById('editingId').value = '';
+            document.getElementById('todayWork').value = '';
+            document.getElementById('nextWork').value = '';
+            document.getElementById('concerns').value = '';
+            const today = getTodayDate();
+            document.getElementById('reportDate').value = today;
+            document.getElementById('submitBtn').textContent = 'Save';
+            
+            // リロード時と同様に、当日分があれば読み込み、無ければ直前の日報から設定
+            const loadedToday = loadTodayReportIfExists(today);
+            if (!loadedToday) {
+                setTodayWorkFromPrevious(today);
+            }
+            
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // 当日分が存在する場合はフォームに読み込み（編集中の続きとして扱う）
+        function loadTodayReportIfExists(selectedDate) {
+            const reports = JSON.parse(localStorage.getItem('dailyReports') || '[]');
+            const todayReport = reports.find(report => report.date === selectedDate);
+            
+            if (!todayReport) {
+                return false;
+            }
+            
+            document.getElementById('editingId').value = todayReport.id;
+            document.getElementById('reportDate').value = todayReport.date;
+            document.getElementById('todayWork').value = todayReport.todayWork;
+            document.getElementById('nextWork').value = todayReport.nextWork;
+            document.getElementById('concerns').value = todayReport.concerns || '';
+            document.getElementById('submitBtn').textContent = 'Update';
+            
+            return true;
+        }
+
+        // 選択した日付の直前の日報から「次の出勤日は何をしますか？」を取得して設定
+        function setTodayWorkFromPrevious(selectedDate) {
+            const reports = JSON.parse(localStorage.getItem('dailyReports') || '[]');
+            
+            if (reports.length === 0) {
+                return;
+            }
+            
+            // 選択した日付より前の日報を抽出
+            const previousReports = reports.filter(report => report.date < selectedDate);
+            
+            if (previousReports.length === 0) {
+                return;
+            }
+            
+            // 日付順にソートして最新のものを取得
+            previousReports.sort((a, b) => {
+                const dateA = new Date(a.date);
+                const dateB = new Date(b.date);
+                return dateB - dateA; // 降順
+            });
+            
+            const previousReport = previousReports[0];
+            
+            // 「次の出勤日は何をしますか？」の内容を「今日は何をしましたか？」に設定
+            if (previousReport.nextWork) {
+                document.getElementById('todayWork').value = previousReport.nextWork;
+            }
+        }
+
+        // 日報を編集
+        function editReport(id) {
+            const reports = JSON.parse(localStorage.getItem('dailyReports') || '[]');
+            const report = reports.find(r => r.id === id);
+            
+            if (report) {
+                document.getElementById('editingId').value = report.id;
+                document.getElementById('reportDate').value = report.date;
+                document.getElementById('todayWork').value = report.todayWork;
+                document.getElementById('nextWork').value = report.nextWork;
+                document.getElementById('concerns').value = report.concerns || '';
+                document.getElementById('submitBtn').textContent = 'Update';
+                
+                // フォームの位置までスクロール
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        }
+
+        // レポート一覧を読み込み
+        function loadReports() {
+            let reports = JSON.parse(localStorage.getItem('dailyReports') || '[]');
+            const reportsList = document.getElementById('reportsList');
+            
+            if (reports.length === 0) {
+                reportsList.innerHTML = '<div class="no-reports">まだ日報が登録されていません</div>';
+                return;
+            }
+            
+            // 日付の新しい順に並び替え
+            reports.sort((a, b) => {
+                const dateA = new Date(a.date);
+                const dateB = new Date(b.date);
+                return dateB - dateA; // 降順（新しい→古い）
+            });
+            
+            reportsList.innerHTML = reports.map(report => `
+                <div class="report-item">
+                    <div class="report-date">
+                        <span>${formatDate(report.date)}</span>
+                        <div class="btn-actions">
+                            <button class="btn-edit" onclick="editReport(${report.id})">Edit</button>
+                            <button class="btn-delete" onclick="deleteReport(${report.id})">Delete</button>
+                        </div>
+                    </div>
+                    <div class="report-content">
+                        <div class="report-label">今日は何をしましたか？</div>
+                        <div class="report-text">${escapeHtml(report.todayWork)}</div>
+                    </div>
+                    <div class="report-content">
+                        <div class="report-label">次の出勤日は何をしますか？</div>
+                        <div class="report-text">${escapeHtml(report.nextWork)}</div>
+                    </div>
+                    <div class="report-content">
+                        <div class="report-label">困りごとや共有したいこと</div>
+                        <div class="report-text">${report.concerns ? escapeHtml(report.concerns) : ''}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 日付のフォーマット
+        function formatDate(dateString) {
+            const date = new Date(dateString + 'T00:00:00');
+            const year = date.getFullYear();
+            const month = date.getMonth() + 1;
+            const day = date.getDate();
+            const weekdays = ['日', '月', '火', '水', '木', '金', '土'];
+            const weekday = weekdays[date.getDay()];
+            
+            return `${year}年${month}月${day}日（${weekday}）`;
+        }
+
+        // HTMLエスケープ
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // レポート削除
+        function deleteReport(id) {
+            if (!confirm('この日報を削除してもよろしいですか？')) {
+                return;
+            }
+            
+            let reports = JSON.parse(localStorage.getItem('dailyReports') || '[]');
+            reports = reports.filter(report => report.id !== id);
+            localStorage.setItem('dailyReports', JSON.stringify(reports));
+            loadReports();
+        }
+
+        // 前月分の日報を削除
+        function purgeOldHistory() {
+            let reports = JSON.parse(localStorage.getItem('dailyReports') || '[]');
+
+            const today = new Date();
+            const lastMonthDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+            const targetYear = lastMonthDate.getFullYear();
+            const targetMonth = lastMonthDate.getMonth() + 1; // convert to 1-based for display/storage
+            const targetMonthStr = `${targetYear}-${String(targetMonth).padStart(2, '0')}`;
+            const monthLabel = `${targetYear}年${targetMonth}月`;
+            const reportsToDelete = reports.filter(report => report.date.startsWith(targetMonthStr));
+
+            const confirmed = confirm(`${monthLabel}の日報 ${reportsToDelete.length} 件を削除します。よろしいですか？`);
+            if (!confirmed) {
+                return;
+            }
+
+            if (reports.length === 0) {
+                showToast('No daily reports found.');
+                return;
+            }
+
+            if (reportsToDelete.length === 0) {
+                showToast('No reports from last month.');
+                return;
+            }
+
+            reports = reports.filter(report => !report.date.startsWith(targetMonthStr));
+            localStorage.setItem('dailyReports', JSON.stringify(reports));
+            loadReports();
+
+            showToast(`Deleted reports from ${monthLabel}.`);
+        }
+    </script>
+</body>
+</html>

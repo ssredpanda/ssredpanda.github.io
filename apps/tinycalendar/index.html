@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ミニカレンダー</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #faf8f5;
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: #333;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 540px;
+        }
+
+        header {
+            background: #fffbf7;
+            padding: 15px 0;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(93, 78, 55, 0.1);
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            color: #5d4e37;
+            margin-bottom: 15px;
+            text-align: center;
+            font-size: 1.5em;
+            font-weight: 600;
+        }
+
+        .controls {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            align-items: end;
+            padding: 0 20px;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .input-group.date-input {
+            width: 155px;
+        }
+
+        .input-group.number-input {
+            width: 90px;
+        }
+
+        label {
+            font-weight: 500;
+            color: #6d5e4d;
+            font-size: 0.85em;
+        }
+
+        input[type="date"],
+        input[type="number"] {
+            padding: 8px 12px;
+            border: 1px solid #d9d0c5;
+            border-radius: 8px;
+            font-size: 0.95em;
+            transition: all 0.2s ease;
+            width: 100%;
+        }
+
+        input[type="date"]:focus,
+        input[type="number"]:focus {
+            outline: none;
+            border-color: #9b6ba8;
+            box-shadow: 0 0 0 4px rgba(155, 107, 168, 0.15);
+        }
+
+        button {
+            padding: 8px 24px;
+            background: #9b6ba8;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.95em;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        button:hover {
+            background: #8b5a98;
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        #calendarContainer {
+            text-align: center;
+        }
+
+        .copy-button-container {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .copy-button {
+            padding: 12px 30px;
+            background: #e89556;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .copy-button:hover {
+            background: #d8843f;
+        }
+
+        .copy-button:active {
+            transform: scale(0.98);
+        }
+
+        .copy-notification {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(93, 78, 55, 0.9);
+            color: white;
+            padding: 20px 40px;
+            border-radius: 12px;
+            font-size: 1.1em;
+            font-weight: 500;
+            z-index: 1000;
+            animation: fadeInOut 1.5s ease;
+            pointer-events: none;
+        }
+
+        @keyframes fadeInOut {
+            0% { opacity: 0; transform: translate(-50%, -50%) scale(0.9); }
+            20% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+            80% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+            100% { opacity: 0; transform: translate(-50%, -50%) scale(0.9); }
+        }
+
+        .calendar-wrapper {
+            background: #fffbf7;
+            border-radius: 9px;
+            padding: 12px;
+            box-shadow: 0 2px 10px rgba(93, 78, 55, 0.1);
+            animation: fadeIn 0.3s ease;
+            display: inline-block;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .calendar {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 2px;
+            max-width: 300px;
+            margin: 0 auto;
+        }
+
+        .day-header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 3px 2px;
+            font-size: 0.83em;
+            font-weight: 700;
+            font-family: 'M PLUS Rounded 1c', sans-serif;
+            color: #5d4e37;
+        }
+
+        .day-header.sunday {
+            color: #d85030;
+            font-weight: 700;
+        }
+
+        .day-header.saturday {
+            color: #4a8b8d;
+            font-weight: 700;
+        }
+
+        .day-cell {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 3px 2px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .day-cell:hover {
+            background: #f5f5f7;
+            border-radius: 6px;
+        }
+
+        .day-cell:empty {
+            background: transparent;
+            cursor: default;
+        }
+
+        .day-cell:empty:hover {
+            background: transparent;
+        }
+
+        .day-number {
+            font-size: 1.13em;
+            font-weight: 700;
+            font-family: 'M PLUS Rounded 1c', sans-serif;
+            color: #5d4e37;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: all 0.2s ease;
+        }
+
+        .day-cell.today .day-number {
+            background: #9b6ba8;
+            color: white;
+        }
+
+        .day-cell.marked .day-number {
+            border: 3px solid #d85030;
+            color: inherit;
+        }
+
+        .day-cell.sunday .day-number,
+        .day-cell.holiday .day-number {
+            color: #d85030;
+            font-weight: 400;
+        }
+
+        .day-cell.saturday .day-number {
+            color: #4a8b8d;
+            font-weight: 400;
+        }
+
+        .day-cell.today.sunday .day-number,
+        .day-cell.today.saturday .day-number,
+        .day-cell.today.holiday .day-number {
+            color: white;
+        }
+
+        .day-cell.marked.sunday .day-number,
+        .day-cell.marked.holiday .day-number {
+            color: #d85030;
+            font-weight: 400;
+        }
+
+        .day-cell.marked.saturday .day-number {
+            color: #4a8b8d;
+            font-weight: 400;
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 1.4em;
+            }
+
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .input-group {
+                width: 100%;
+            }
+
+            input[type="date"],
+            input[type="number"] {
+                width: 100%;
+            }
+
+            .calendar {
+                max-width: 100%;
+            }
+
+            .calendar-wrapper {
+                padding: 9px;
+            }
+
+            .day-header {
+                padding: 2px;
+                font-size: 0.75em;
+            }
+
+            .day-cell {
+                padding: 2px;
+            }
+
+            .day-number {
+                font-size: 1.05em;
+                width: 27px;
+                height: 27px;
+            }
+
+            .copy-button {
+                font-size: 0.9em;
+                padding: 10px 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="controls">
+                <div class="input-group date-input">
+                    <label for="startDate">Base Date</label>
+                    <input type="date" id="startDate" value="">
+                </div>
+                <div class="input-group number-input">
+                    <label for="daysBefore">Days Before</label>
+                    <input type="number" id="daysBefore" min="0" max="99" value="7">
+                </div>
+                <div class="input-group number-input">
+                    <label for="daysAfter">Days After</label>
+                    <input type="number" id="daysAfter" min="0" max="99" value="7">
+                </div>
+                <button onclick="generateCalendar()">Generate</button>
+            </div>
+        </header>
+
+        <div id="calendarContainer"></div>
+        
+        <div class="copy-button-container">
+            <button class="copy-button" onclick="copyCalendarToClipboard()">Copy to Clipboard</button>
+        </div>
+    </div>
+
+    <script>
+        // 初期値として今日の日付を設定
+        document.getElementById('startDate').valueAsDate = new Date();
+
+        // Days Before/After の入力制限を強制
+        function enforceLimit(input) {
+            const value = parseInt(input.value);
+            if (value > 99) {
+                input.value = 99;
+            } else if (value < 0) {
+                input.value = 0;
+            }
+        }
+
+        document.getElementById('daysBefore').addEventListener('input', function() {
+            enforceLimit(this);
+        });
+        
+        document.getElementById('daysAfter').addEventListener('input', function() {
+            enforceLimit(this);
+        });
+
+        // 曜日名（月曜始まり）
+        const dayNames = ['月', '火', '水', '木', '金', '土', '日'];
+        const dayNamesEn = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+
+        // 春分の日を計算（1980年から2099年まで対応）
+        function getVernalEquinoxDay(year) {
+            if (year >= 1980 && year <= 2099) {
+                return Math.floor(20.8431 + 0.242194 * (year - 1980) - Math.floor((year - 1980) / 4));
+            }
+            return null;
+        }
+
+        // 秋分の日を計算（1980年から2099年まで対応）
+        function getAutumnalEquinoxDay(year) {
+            if (year >= 1980 && year <= 2099) {
+                return Math.floor(23.2488 + 0.242194 * (year - 1980) - Math.floor((year - 1980) / 4));
+            }
+            return null;
+        }
+
+        // 日本の祝日を判定（振替休日を除く）
+        function isJapaneseHolidayCore(date) {
+            const year = date.getFullYear();
+            const month = date.getMonth() + 1; // 1-12
+            const day = date.getDate();
+            const dayOfWeek = date.getDay(); // 0-6 (日-土)
+
+            // 固定祝日
+            if (month === 1 && day === 1) return true; // 元日
+            if (month === 2 && day === 11) return true; // 建国記念の日
+            if (month === 4 && day === 29) return true; // 昭和の日
+            if (month === 5 && day === 3) return true; // 憲法記念日
+            if (month === 5 && day === 4) return true; // みどりの日
+            if (month === 5 && day === 5) return true; // こどもの日
+            if (month === 11 && day === 3) return true; // 文化の日
+            if (month === 11 && day === 23) return true; // 勤労感謝の日
+
+            // 年による条件付き固定祝日
+            if (year <= 2018 && month === 12 && day === 23) return true; // 天皇誕生日（2018年まで）
+            if (year >= 2020 && month === 2 && day === 23) return true; // 天皇誕生日（2020年以降）
+            if (year >= 2016 && month === 8 && day === 11) return true; // 山の日（2016年以降）
+
+            // ハッピーマンデー（第n月曜日）
+            const nthMonday = Math.floor((day - 1) / 7) + 1; // 第何月曜日か
+            if (dayOfWeek === 1) { // 月曜日
+                if (month === 1 && nthMonday === 2 && year >= 2000) return true; // 成人の日
+                if (month === 7 && nthMonday === 3 && year >= 2003) return true; // 海の日
+                if (month === 9 && nthMonday === 3 && year >= 2003) return true; // 敬老の日
+                if (month === 10 && nthMonday === 2 && year >= 2000) return true; // スポーツの日（体育の日）
+            }
+
+            // 春分の日・秋分の日
+            const vernalEquinox = getVernalEquinoxDay(year);
+            const autumnalEquinox = getAutumnalEquinoxDay(year);
+            
+            if (month === 3 && day === vernalEquinox) return true; // 春分の日
+            if (month === 9 && day === autumnalEquinox) return true; // 秋分の日
+
+            return false;
+        }
+
+        // 日本の祝日を判定（振替休日も含む）
+        function isJapaneseHoliday(date) {
+            // 祝日本体
+            if (isJapaneseHolidayCore(date)) return true;
+
+            // 振替休日（祝日が日曜日の場合、翌平日）
+            const dayOfWeek = date.getDay();
+            if (dayOfWeek !== 0) { // 日曜日以外
+                const prevDate = new Date(date);
+                prevDate.setDate(date.getDate() - 1);
+                if (prevDate.getDay() === 0 && isJapaneseHolidayCore(prevDate)) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+
+        // カレンダーを生成
+        function generateCalendar() {
+            const baseDateInput = document.getElementById('startDate').value;
+            let daysBefore = parseInt(document.getElementById('daysBefore').value) || 0;
+            let daysAfter = parseInt(document.getElementById('daysAfter').value) || 0;
+            
+            // 0-99の範囲に制限
+            daysBefore = Math.max(0, Math.min(99, daysBefore));
+            daysAfter = Math.max(0, Math.min(99, daysAfter));
+
+            if (!baseDateInput) {
+                alert('基準日を選択してください');
+                return;
+            }
+
+            const baseDate = new Date(baseDateInput);
+            baseDate.setHours(0, 0, 0, 0);
+
+            // 表示開始日を計算（基準日の前の日数分戻る）
+            const startDate = new Date(baseDate);
+            startDate.setDate(baseDate.getDate() - daysBefore);
+
+            // 総日数を計算
+            const totalDays = daysBefore + 1 + daysAfter;
+
+            const container = document.getElementById('calendarContainer');
+
+            let html = '<div class="calendar-wrapper">';
+            html += '<div class="calendar">';
+
+            // 曜日ヘッダーを追加
+            for (let i = 0; i < 7; i++) {
+                html += `<div class="day-header ${dayNamesEn[i]}">${dayNames[i]}</div>`;
+            }
+
+            // 開始日の曜日を取得（月曜始まりに調整：日曜=6, 月曜=0）
+            let startDayOfWeek = startDate.getDay();
+            startDayOfWeek = startDayOfWeek === 0 ? 6 : startDayOfWeek - 1;
+
+            // 最初の週の空セルを追加
+            for (let i = 0; i < startDayOfWeek; i++) {
+                html += '<div class="day-cell"></div>';
+            }
+
+            // 日付のセルを追加
+            for (let i = 0; i < totalDays; i++) {
+                const currentDate = new Date(startDate);
+                currentDate.setDate(startDate.getDate() + i);
+                
+                const day = currentDate.getDate();
+                let dayOfWeek = currentDate.getDay();
+                // 月曜始まりに変換（日曜=6, 月曜=0）
+                dayOfWeek = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+                
+                const dayClass = dayNamesEn[dayOfWeek];
+                // 基準日かどうかをチェック
+                const isBaseDate = currentDate.getTime() === baseDate.getTime();
+                // 祝日かどうかをチェック
+                const isHoliday = isJapaneseHoliday(currentDate);
+
+                html += `<div class="day-cell ${dayClass}${isBaseDate ? ' today' : ''}${isHoliday ? ' holiday' : ''}" data-has-date="true" data-is-base="${isBaseDate}">`;
+                html += `<div class="day-number">${day}</div>`;
+                html += '</div>';
+            }
+
+            html += '</div></div>';
+            container.innerHTML = html;
+
+            // 日付セルにクリックイベントを追加
+            addClickEvents();
+        }
+
+        // 日付セルにクリックイベントを追加
+        function addClickEvents() {
+            const dayCells = document.querySelectorAll('.day-cell[data-has-date]');
+            
+            dayCells.forEach(cell => {
+                cell.addEventListener('click', function() {
+                    const isBaseDate = this.getAttribute('data-is-base') === 'true';
+                    
+                    if (isBaseDate) {
+                        // 基準日の場合は紫色の塗りつぶし丸をトグル
+                        this.classList.toggle('today');
+                    } else {
+                        // 基準日以外の場合は赤色の枠線丸をトグル
+                        this.classList.toggle('marked');
+                    }
+                });
+            });
+        }
+
+        // SVGでカレンダーを描画
+        function createCalendarSVG() {
+            const calendar = document.querySelector('.calendar');
+            const dayHeaders = calendar.querySelectorAll('.day-header');
+            const allCells = calendar.querySelectorAll('.day-cell'); // 空セルも含む全てのセル
+            
+            const cellWidth = 42;  // 28 * 1.5
+            const cellHeight = 42; // 28 * 1.5
+            const headerHeight = 24; // 16 * 1.5
+            const padding = 12; // 8 * 1.5
+            
+            const cols = 7;
+            
+            // 実際の行数を計算（ヘッダー除く）
+            const totalCells = allCells.length;
+            const rows = Math.ceil(totalCells / cols) + 1; // +1 for header
+            
+            const width = cols * cellWidth + padding * 2;
+            const height = rows * cellHeight + padding * 2;
+            
+            let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" style="background: #fffbf7;">`;
+            svg += `<style>
+                @import url('https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700&amp;display=swap');
+                text { font-family: 'M PLUS Rounded 1c', sans-serif; }
+            </style>`;
+            
+            // 曜日ヘッダー
+            dayHeaders.forEach((header, i) => {
+                const x = padding + i * cellWidth + cellWidth / 2;
+                const y = padding + headerHeight / 2;
+                let color = '#5d4e37';
+                if (header.classList.contains('sunday')) color = '#d85030';
+                if (header.classList.contains('saturday')) color = '#4a8b8d';
+                
+                svg += `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="middle" font-size="13.5" font-weight="700" fill="${color}">${header.textContent}</text>`;
+            });
+            
+            // 全てのセル（空セルも含む）を処理
+            allCells.forEach((cell, i) => {
+                const col = i % cols;
+                const row = Math.floor(i / cols) + 1;
+                const x = padding + col * cellWidth + cellWidth / 2;
+                const y = padding + row * cellHeight + cellHeight / 2;
+                
+                // 空セルはスキップ
+                if (!cell.hasAttribute('data-has-date')) {
+                    return;
+                }
+                
+                const number = cell.querySelector('.day-number');
+                const text = number.textContent;
+                
+                let color = '#5d4e37';
+                let bgColor = null;
+                let borderColor = null;
+                
+                // 基準日
+                if (cell.classList.contains('today')) {
+                    bgColor = '#9b6ba8';
+                    color = '#fff';
+                }
+                // マーク付き
+                else if (cell.classList.contains('marked')) {
+                    borderColor = '#d85030';
+                }
+                
+                // 日曜・祝日
+                if ((cell.classList.contains('sunday') || cell.classList.contains('holiday')) && !cell.classList.contains('today')) {
+                    color = '#d85030';
+                }
+                // 土曜
+                else if (cell.classList.contains('saturday') && !cell.classList.contains('today')) {
+                    color = '#4a8b8d';
+                }
+                
+                // 背景の丸
+                if (bgColor) {
+                    svg += `<circle cx="${x}" cy="${y}" r="15" fill="${bgColor}"/>`;
+                }
+                
+                // 枠線の丸
+                if (borderColor) {
+                    svg += `<circle cx="${x}" cy="${y}" r="15" fill="none" stroke="${borderColor}" stroke-width="3"/>`;
+                }
+                
+                // 数字
+                svg += `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="middle" font-size="18" font-weight="700" fill="${color}">${text}</text>`;
+            });
+            
+            svg += '</svg>';
+            return svg;
+        }
+
+        // カレンダーを画像化してクリップボードにコピー
+        async function copyCalendarToClipboard() {
+            const calendarWrapper = document.querySelector('.calendar-wrapper');
+            
+            if (!calendarWrapper) {
+                showNotification('Calendar not found');
+                return;
+            }
+
+            try {
+                // フォントが読み込まれるまで待つ
+                await document.fonts.ready;
+                await document.fonts.load('700 16px "M PLUS Rounded 1c"');
+                
+                // SVGを作成
+                const svgString = createCalendarSVG();
+                
+                // データURIとして埋め込み
+                const svgDataUrl = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgString);
+                
+                // SVGを画像に変換
+                const img = new Image();
+                img.onload = async () => {
+                    // フォントの読み込みとレンダリングを待つ
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0);
+                    
+                    // canvasをblobに変換してクリップボードにコピー
+                    canvas.toBlob(async (blob) => {
+                        try {
+                            await navigator.clipboard.write([
+                                new ClipboardItem({
+                                    'image/png': blob
+                                })
+                            ]);
+                            showNotification('Copied to clipboard');
+                        } catch (err) {
+                            console.error('クリップボードへのコピー失敗:', err);
+                            showNotification('Failed to copy');
+                        }
+                    });
+                };
+                
+                img.onerror = () => {
+                    showNotification('Failed to generate image');
+                };
+                
+                img.src = svgDataUrl;
+            } catch (error) {
+                console.error('画像化エラー:', error);
+                showNotification('Failed to generate image');
+            }
+        }
+
+        // 通知を表示
+        function showNotification(message) {
+            const notification = document.createElement('div');
+            notification.className = 'copy-notification';
+            notification.textContent = message;
+            document.body.appendChild(notification);
+
+            // 1.5秒後に削除
+            setTimeout(() => {
+                notification.remove();
+            }, 1500);
+        }
+
+        // ページ読み込み時に自動生成
+        window.addEventListener('load', generateCalendar);
+    </script>
+</body>
+</html>

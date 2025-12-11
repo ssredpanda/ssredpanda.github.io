@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SQL Formatter</title>
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            margin: 0;
+            padding: 10px;
+            background-color: #f5f5f5;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 100%;
+            margin: 0 auto;
+            padding: 0 10px;
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid #e9ecef;
+            border-top-color: #007bff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        .loading-text {
+            margin-top: 20px;
+            font-size: 18px;
+            color: #495057;
+        }
+
+        .loading-subtext {
+            margin-top: 8px;
+            font-size: 14px;
+            color: #6c757d;
+        }
+
+        .editor-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .editor-container.expanded {
+            grid-template-columns: 1fr;
+        }
+
+        .editor-container.expanded .input-panel {
+            display: none;
+        }
+
+        .editor-container.expanded .output-panel {
+            max-width: 100%;
+        }
+
+        .editor-container.expanded .output-text {
+            height: calc(100vh - 140px);
+        }
+
+        @media (max-width: 768px) {
+            .editor-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .editor-panel {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .editor-header {
+            background: #f8f9fa;
+            padding: 12px 16px;
+            border-bottom: 1px solid #e9ecef;
+            font-weight: 600;
+            color: #495057;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .expand-btn {
+            padding: 4px 8px;
+            font-size: 12px;
+            background: #e9ecef;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            color: #495057;
+        }
+
+        .expand-btn:hover {
+            background: #dee2e6;
+        }
+
+        .editor-content {
+            padding: 0;
+        }
+
+        textarea {
+            width: 100%;
+            height: calc(100vh - 140px);
+            padding: 16px;
+            border: none;
+            resize: vertical;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            outline: none;
+        }
+
+        textarea:focus {
+            background-color: #fafbfc;
+        }
+
+        .output-text {
+            width: 100%;
+            height: calc(100vh - 140px);
+            padding: 16px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            background: #f8f9fa;
+            overflow: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        /* Syntax highlighting */
+        .sql-keyword { color: #0000ff; font-weight: 500; }
+        .sql-function { color: #795e26; }
+        .sql-string { color: #a31515; }
+        .sql-number { color: #098658; }
+        .sql-comment { color: #008000; font-style: italic; }
+        .sql-operator { color: #000000; }
+
+        .actions {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 10px;
+            align-items: center;
+        }
+
+        .keyword-case {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-left: 12px;
+        }
+
+        .keyword-case input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+
+        .keyword-case label {
+            font-size: 14px;
+            color: #555;
+            cursor: pointer;
+        }
+
+        button {
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: 500;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary {
+            background-color: #007bff;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #0056b3;
+        }
+
+        .btn-primary:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background-color: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background-color: #545b62;
+        }
+
+        .btn-success {
+            background-color: #28a745;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background-color: #1e7e34;
+        }
+
+        .error {
+            color: #dc3545;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 12px 20px;
+            background: #28a745;
+            color: white;
+            border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .toast.error {
+            background: #dc3545;
+        }
+
+        .loading-btn {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #ffffff;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 0.8s linear infinite;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+    </style>
+</head>
+<body>
+    <div id="loading-overlay" class="loading-overlay">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Loading SQL Formatter...</div>
+        <div class="loading-subtext">Initializing Python environment</div>
+    </div>
+
+    <div class="container">
+        <div class="actions">
+            <button id="format-btn" class="btn-primary" onclick="formatSQL()" disabled>Format SQL</button>
+            <button class="btn-secondary" onclick="clearAll()">Clear</button>
+            <button class="btn-success" onclick="copyOutput()">Copy to Clipboard</button>
+            <div class="keyword-case">
+                <input type="checkbox" id="keyword-uppercase">
+                <label for="keyword-uppercase">Use UPPERCASE keywords</label>
+            </div>
+            <div class="keyword-case">
+                <input type="checkbox" id="indent-two-spaces">
+                <label for="indent-two-spaces">Use 2-space indent</label>
+            </div>
+        </div>
+
+        <div id="editor-container" class="editor-container">
+            <div class="editor-panel input-panel">
+                <div class="editor-header"><span>Input SQL</span></div>
+                <div class="editor-content">
+                    <textarea id="sql-input" placeholder="Paste your SQL here..." disabled></textarea>
+                </div>
+            </div>
+            <div class="editor-panel output-panel">
+                <div class="editor-header">
+                    <span>Formatted SQL</span>
+                    <button id="expand-btn" class="expand-btn" onclick="toggleExpand()">Expand</button>
+                </div>
+                <div class="editor-content">
+                    <div id="sql-output" class="output-text"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast"></div>
+
+    <script>
+        let pyodide = null;
+        const sqlInput = document.getElementById('sql-input');
+        const sqlOutput = document.getElementById('sql-output');
+        const formatBtn = document.getElementById('format-btn');
+        const keywordUppercaseCheckbox = document.getElementById('keyword-uppercase');
+        const indentTwoSpacesCheckbox = document.getElementById('indent-two-spaces');
+        const toast = document.getElementById('toast');
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const editorContainer = document.getElementById('editor-container');
+        const expandBtn = document.getElementById('expand-btn');
+
+        function toggleExpand() {
+            const isExpanded = editorContainer.classList.toggle('expanded');
+            expandBtn.textContent = isExpanded ? 'Collapse' : 'Expand';
+        }
+
+        // SQL keywords list
+        const sqlKeywords = [
+            'select', 'from', 'where', 'and', 'or', 'not', 'in', 'is', 'null',
+            'like', 'between', 'exists', 'case', 'when', 'then', 'else', 'end',
+            'as', 'on', 'join', 'inner', 'left', 'right', 'outer', 'full', 'cross',
+            'union', 'all', 'except', 'intersect', 'order', 'by', 'asc', 'desc',
+            'group', 'having', 'limit', 'offset', 'distinct', 'top', 'into',
+            'insert', 'values', 'update', 'set', 'delete', 'create', 'table',
+            'alter', 'drop', 'index', 'view', 'if', 'else', 'begin', 'commit',
+            'rollback', 'transaction', 'primary', 'key', 'foreign', 'references',
+            'constraint', 'default', 'unique', 'check', 'with', 'recursive',
+            'over', 'partition', 'row', 'rows', 'range', 'unbounded', 'preceding',
+            'following', 'current', 'first', 'last', 'nulls', 'filter', 'within',
+            'array', 'struct', 'unnest', 'lateral', 'natural', 'using', 'true', 'false',
+            'cast', 'extract', 'interval', 'date', 'time', 'timestamp', 'datetime',
+            'year', 'month', 'day', 'hour', 'minute', 'second', 'qualify', 'window',
+            'pivot', 'unpivot', 'tablesample', 'percent', 'repeatable'
+        ];
+
+        // SQL functions list
+        const sqlFunctions = [
+            'sum', 'count', 'avg', 'min', 'max', 'abs', 'ceil', 'floor', 'round',
+            'coalesce', 'nullif', 'ifnull', 'concat', 'length', 'lower', 'upper',
+            'trim', 'ltrim', 'rtrim', 'replace', 'substring', 'substr', 'split',
+            'format', 'parse_date', 'parse_timestamp', 'date_add', 'date_sub',
+            'date_diff', 'date_trunc', 'current_date', 'current_timestamp',
+            'row_number', 'rank', 'dense_rank', 'ntile', 'lead', 'lag',
+            'first_value', 'last_value', 'array_agg', 'string_agg', 'any_value',
+            'approx_count_distinct', 'countif', 'logical_and', 'logical_or',
+            'safe_divide', 'safe_cast', 'regexp_contains', 'regexp_extract',
+            'regexp_replace', 'starts_with', 'ends_with', 'contains_substr',
+            'generate_uuid', 'farm_fingerprint', 'md5', 'sha256', 'to_json_string',
+            'json_extract', 'json_value', 'json_query', 'st_geogpoint', 'st_distance'
+        ];
+
+        function convertKeywordCase(sql, toUpper) {
+            if (!toUpper) return sql;
+
+            let result = sql;
+            sqlKeywords.forEach(keyword => {
+                const regex = new RegExp(`\\b${keyword}\\b`, 'gi');
+                result = result.replace(regex, keyword.toUpperCase());
+            });
+            return result;
+        }
+
+        function convertIndent(sql, toTwoSpaces) {
+            if (!toTwoSpaces) return sql;
+
+            // Convert 4-space indents to 2-space indents
+            return sql.split('\n').map(line => {
+                const match = line.match(/^( +)/);
+                if (match) {
+                    const spaces = match[1].length;
+                    const newSpaces = Math.floor(spaces / 2);
+                    return ' '.repeat(newSpaces) + line.slice(spaces);
+                }
+                return line;
+            }).join('\n');
+        }
+
+        function highlightSQL(sql) {
+            // Escape HTML
+            let result = sql
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+
+            // Store strings and comments temporarily
+            const placeholders = [];
+
+            // Handle strings (single quotes)
+            result = result.replace(/'([^']*(?:''[^']*)*)'/g, (match) => {
+                placeholders.push(`<span class="sql-string">${match}</span>`);
+                return `__PLACEHOLDER_${placeholders.length - 1}__`;
+            });
+
+            // Handle strings (double quotes)
+            result = result.replace(/"([^"]*(?:""[^"]*)*)"/g, (match) => {
+                placeholders.push(`<span class="sql-string">${match}</span>`);
+                return `__PLACEHOLDER_${placeholders.length - 1}__`;
+            });
+
+            // Handle single-line comments (--)
+            result = result.replace(/--.*$/gm, (match) => {
+                placeholders.push(`<span class="sql-comment">${match}</span>`);
+                return `__PLACEHOLDER_${placeholders.length - 1}__`;
+            });
+
+            // Handle multi-line comments
+            result = result.replace(/\/\*[\s\S]*?\*\//g, (match) => {
+                placeholders.push(`<span class="sql-comment">${match}</span>`);
+                return `__PLACEHOLDER_${placeholders.length - 1}__`;
+            });
+
+            // Highlight functions (before keywords to avoid conflicts)
+            sqlFunctions.forEach(func => {
+                const regex = new RegExp(`\\b(${func})\\s*(?=\\()`, 'gi');
+                result = result.replace(regex, '<span class="sql-function">$1</span>');
+            });
+
+            // Highlight keywords
+            sqlKeywords.forEach(keyword => {
+                const regex = new RegExp(`\\b(${keyword})\\b`, 'gi');
+                result = result.replace(regex, '<span class="sql-keyword">$1</span>');
+            });
+
+            // Highlight numbers
+            result = result.replace(/\b(\d+\.?\d*)\b/g, '<span class="sql-number">$1</span>');
+
+            // Restore placeholders
+            placeholders.forEach((placeholder, index) => {
+                result = result.replace(`__PLACEHOLDER_${index}__`, placeholder);
+            });
+
+            return result;
+        }
+
+        async function initPyodide() {
+            try {
+                // Load Pyodide
+                pyodide = await loadPyodide();
+
+                // Install sqlfmt
+                document.querySelector('.loading-subtext').textContent = 'Installing sqlfmt package...';
+                await pyodide.loadPackage('micropip');
+                await pyodide.runPythonAsync(`
+                    import micropip
+                    await micropip.install('shandy-sqlfmt')
+                `);
+
+                // Define the format function
+                await pyodide.runPythonAsync(`
+                    from sqlfmt.api import format_string, Mode
+                    from sqlfmt.exception import SqlfmtError
+
+                    def format_sql(sql, dialect, line_length):
+                        try:
+                            mode = Mode(
+                                line_length=int(line_length),
+                                dialect_name=dialect,
+                            )
+                            formatted = format_string(sql, mode)
+                            return {"success": True, "formatted": formatted}
+                        except SqlfmtError as e:
+                            return {"success": False, "error": f"Formatting error: {str(e)}"}
+                        except Exception as e:
+                            return {"success": False, "error": f"Unexpected error: {str(e)}"}
+                `);
+
+                // Enable UI
+                sqlInput.disabled = false;
+                formatBtn.disabled = false;
+                loadingOverlay.style.display = 'none';
+
+                showToast('SQL Formatter ready!');
+            } catch (error) {
+                document.querySelector('.loading-text').textContent = 'Failed to load';
+                document.querySelector('.loading-subtext').textContent = error.message;
+                console.error('Failed to initialize Pyodide:', error);
+            }
+        }
+
+        // Initialize on page load
+        initPyodide();
+
+        // Format SQL on Ctrl+Enter or Cmd+Enter
+        sqlInput.addEventListener('keydown', function(e) {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                e.preventDefault();
+                formatSQL();
+            }
+        });
+
+        async function formatSQL() {
+            if (!pyodide) {
+                showToast('Please wait for initialization', true);
+                return;
+            }
+
+            const sql = sqlInput.value.trim();
+            if (!sql) {
+                showToast('Please enter SQL to format', true);
+                return;
+            }
+
+            // Show loading state
+            formatBtn.disabled = true;
+            formatBtn.innerHTML = '<span class="loading-btn"></span>Formatting...';
+
+            try {
+                // Call Python function
+                const result = pyodide.runPython(`
+import json
+result = format_sql(${JSON.stringify(sql)}, "polyglot", 88)
+json.dumps(result)
+`);
+
+                const data = JSON.parse(result);
+                console.log('Format result:', data);
+
+                if (data.success) {
+                    const toUpper = keywordUppercaseCheckbox.checked;
+                    const toTwoSpaces = indentTwoSpacesCheckbox.checked;
+                    let formatted = convertKeywordCase(data.formatted, toUpper);
+                    formatted = convertIndent(formatted, toTwoSpaces);
+                    const highlighted = highlightSQL(formatted);
+                    sqlOutput.innerHTML = highlighted;
+                    sqlOutput.classList.remove('error');
+                    showToast('Formatted successfully!');
+                } else {
+                    sqlOutput.textContent = data.error;
+                    sqlOutput.classList.add('error');
+                    showToast('Formatting failed', true);
+                }
+            } catch (error) {
+                console.error('Format error:', error);
+                sqlOutput.textContent = 'Error: ' + error.message;
+                sqlOutput.classList.add('error');
+                showToast('Formatting failed', true);
+            } finally {
+                // Reset button state
+                formatBtn.disabled = false;
+                formatBtn.innerHTML = 'Format SQL';
+            }
+        }
+
+        function clearAll() {
+            sqlInput.value = '';
+            sqlOutput.textContent = '';
+            sqlOutput.classList.remove('error');
+        }
+
+        async function copyOutput() {
+            const output = sqlOutput.textContent;
+            if (!output) {
+                showToast('No output to copy', true);
+                return;
+            }
+
+            try {
+                await navigator.clipboard.writeText(output);
+                showToast('Copied to clipboard!');
+            } catch (error) {
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = output;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                showToast('Copied to clipboard!');
+            }
+        }
+
+        function showToast(message, isError = false) {
+            toast.textContent = message;
+            toast.className = 'toast' + (isError ? ' error' : '');
+            toast.classList.add('show');
+
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

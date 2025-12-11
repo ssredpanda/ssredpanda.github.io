@@ -1,0 +1,983 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>世界時差比較</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #F5F0E1;
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .country-selector {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        .time-input-container {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        .time-input-container label {
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .time-input-container input {
+            font-size: 16px;
+            padding: 10px 15px;
+            border: 2px solid #8D9B85;
+            border-radius: 8px;
+            background: white;
+            color: #333;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .time-input-container input:focus {
+            outline: none;
+            border-color: #897082;
+        }
+        
+        .time-input-container button {
+            font-size: 14px;
+            padding: 10px 20px;
+            background: #C4A5AD;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+        
+        .time-input-container button:hover {
+            background: #897082;
+        }
+        
+        .country-selector select {
+            font-size: 16px;
+            padding: 10px 20px;
+            border: 2px solid #8D9B85;
+            border-radius: 8px;
+            background: white;
+            color: #333;
+            cursor: pointer;
+            min-width: 200px;
+        }
+        
+        .country-selector select:focus {
+            outline: none;
+            border-color: #897082;
+        }
+        
+        .country-selector button {
+            font-size: 16px;
+            padding: 10px 30px;
+            background: #8D9B85;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+        
+        .country-selector button:hover {
+            background: #897082;
+        }
+        
+        .timeline-section {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 25px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            position: relative;
+            cursor: grab;
+            transition: opacity 0.2s, transform 0.2s;
+        }
+        
+        .timeline-section:active {
+            cursor: grabbing;
+        }
+        
+        .timeline-section.dragging {
+            opacity: 0.5;
+        }
+        
+        .timeline-section.drag-over {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 50px rgba(0, 0, 0, 0.3);
+        }
+        
+        .remove-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: #C4A5AD;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            font-size: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.3s;
+        }
+        
+        .remove-btn:hover {
+            background: #897082;
+        }
+        
+        .country-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .flag {
+            font-size: 40px;
+            margin-right: 15px;
+        }
+        
+        .country-info {
+            flex: 1;
+        }
+        
+        .country-name {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .current-time {
+            font-size: 32px;
+            font-weight: bold;
+            color: #897082;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .date-info {
+            font-size: 14px;
+            color: #666;
+            margin-top: 5px;
+        }
+        
+        .date-info.previous-day {
+            color: salmon;
+        }
+        
+        .date-info.next-day {
+            color: #8D9B85;
+        }
+        
+        .time-diff-badge {
+            display: inline-block;
+            background: #C4A5AD;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        
+        .timeline-container {
+            position: relative;
+            margin-top: 20px;
+            padding-top: 50px;
+        }
+        
+        .timeline-bar {
+            height: 40px;
+            background: linear-gradient(to right, 
+                #897082 0%, 
+                #897082 20%, 
+                #C9C5BE 20%,
+                #C9C5BE 25%,
+                #F5F0E1 25%,
+                #F5F0E1 75%,
+                #C9C5BE 75%,
+                #C9C5BE 80%,
+                #897082 80%,
+                #897082 100%);
+            border-radius: 20px;
+            position: relative;
+            overflow: visible;
+        }
+        
+        .hour-marks {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+        }
+        
+        .hour-mark {
+            position: absolute;
+            width: 2px;
+            height: 15px;
+            background: rgba(0, 0, 0, 0.2);
+            top: -20px;
+        }
+        
+        .hour-label {
+            position: absolute;
+            top: -40px;
+            transform: translateX(-50%);
+            font-size: 12px;
+            color: #666;
+            font-weight: 500;
+        }
+        
+        .current-marker {
+            position: absolute;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 4px;
+            height: 60px;
+            background: #8D9B85;
+            border-radius: 2px;
+            box-shadow: 0 0 10px rgba(141, 155, 133, 0.5);
+        }
+        
+        .current-marker::before {
+            content: '';
+            position: absolute;
+            top: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-top: 10px solid #8D9B85;
+        }
+        
+        .current-marker::after {
+            content: '';
+            position: absolute;
+            bottom: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-bottom: 10px solid #8D9B85;
+        }
+        
+        .time-label {
+            position: absolute;
+            bottom: -35px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 14px;
+            font-weight: bold;
+            color: #8D9B85;
+            white-space: nowrap;
+            background: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+        }
+        
+        @media (max-width: 768px) {
+            body {
+                padding: 20px 10px;
+            }
+            
+            .time-input-container {
+                padding: 15px;
+                gap: 8px;
+            }
+            
+            .time-input-container label {
+                width: 100%;
+                text-align: center;
+            }
+            
+            .time-input-container input {
+                width: 100%;
+                font-size: 14px;
+            }
+            
+            .time-input-container button {
+                width: 100%;
+                padding: 10px;
+            }
+            
+            .country-selector {
+                padding: 15px;
+                gap: 8px;
+            }
+            
+            .country-selector select {
+                min-width: 100%;
+                font-size: 14px;
+            }
+            
+            .country-selector button {
+                width: 100%;
+                padding: 12px;
+            }
+            
+            .timeline-section {
+                padding: 20px 15px;
+                cursor: grab;
+            }
+            
+            .timeline-section:active {
+                cursor: grabbing;
+            }
+            
+            .country-header {
+                flex-wrap: wrap;
+                gap: 10px;
+            }
+            
+            .flag {
+                font-size: 32px;
+                margin-right: 10px;
+            }
+            
+            .country-name {
+                font-size: 16px;
+            }
+            
+            .time-diff-badge {
+                font-size: 11px;
+                padding: 3px 8px;
+                margin-left: 5px;
+            }
+            
+            .date-info {
+                font-size: 12px;
+            }
+            
+            .current-time {
+                font-size: 28px;
+                width: 100%;
+                margin-top: 5px;
+            }
+            
+            .timeline-container {
+                padding-top: 45px;
+            }
+            
+            .timeline-bar {
+                height: 35px;
+            }
+            
+            .current-marker {
+                height: 50px;
+            }
+            
+            .hour-label {
+                font-size: 10px;
+                top: -38px;
+            }
+            
+            .hour-mark {
+                height: 12px;
+                top: -18px;
+            }
+            
+            .time-label {
+                font-size: 12px;
+            }
+            
+            .remove-btn {
+                width: 28px;
+                height: 28px;
+                font-size: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="country-selector">
+            <label for="base-country-select">Base Timezone:</label>
+            <select id="base-country-select">
+                <option value="Asia/Tokyo|🇯🇵|Japan (JST)" selected>🇯🇵 Japan (JST)</option>
+                <option value="UTC|🌐|UTC">🌐 UTC (Coordinated Universal Time)</option>
+                <option value="Australia/Sydney|🇦🇺|Sydney (AEDT/AEST)">🇦🇺 Australia - Sydney (AEDT/AEST)</option>
+                <option value="Europe/Brussels|🇧🇪|Brussels (CET/CEST)">🇧🇪 Belgium - Brussels (CET/CEST)</option>
+                <option value="America/Sao_Paulo|🇧🇷|São Paulo (BRT/BRST)">🇧🇷 Brazil - São Paulo (BRT/BRST)</option>
+                <option value="America/Toronto|🇨🇦|Toronto (EST/EDT)">🇨🇦 Canada - Toronto (EST/EDT)</option>
+                <option value="America/Vancouver|🇨🇦|Vancouver (PST/PDT)">🇨🇦 Canada - Vancouver (PST/PDT)</option>
+                <option value="Asia/Shanghai|🇨🇳|Shanghai (CST)">🇨🇳 China - Shanghai (CST)</option>
+                <option value="Africa/Cairo|🇪🇬|Cairo (EET)">🇪🇬 Egypt - Cairo (EET)</option>
+                <option value="Europe/Paris|🇫🇷|Paris (CET/CEST)">🇫🇷 France - Paris (CET/CEST)</option>
+                <option value="Europe/Berlin|🇩🇪|Berlin (CET/CEST)">🇩🇪 Germany - Berlin (CET/CEST)</option>
+                <option value="Asia/Hong_Kong|🇭🇰|Hong Kong (HKT)">🇭🇰 Hong Kong (HKT)</option>
+                <option value="Asia/Kolkata|🇮🇳|Delhi (IST)">🇮🇳 India - Delhi (IST)</option>
+                <option value="Europe/Rome|🇮🇹|Rome (CET/CEST)">🇮🇹 Italy - Rome (CET/CEST)</option>
+                <option value="America/Mexico_City|🇲🇽|Mexico City (CST/CDT)">🇲🇽 Mexico - Mexico City (CST/CDT)</option>
+                <option value="Pacific/Auckland|🇳🇿|Auckland (NZDT/NZST)">🇳🇿 New Zealand - Auckland (NZDT/NZST)</option>
+                <option value="Europe/Moscow|🇷🇺|Moscow (MSK)">🇷🇺 Russia - Moscow (MSK)</option>
+                <option value="Asia/Singapore|🇸🇬|Singapore (SGT)">🇸🇬 Singapore (SGT)</option>
+                <option value="Asia/Seoul|🇰🇷|Seoul (KST)">🇰🇷 South Korea - Seoul (KST)</option>
+                <option value="Europe/Madrid|🇪🇸|Madrid (CET/CEST)">🇪🇸 Spain - Madrid (CET/CEST)</option>
+                <option value="Asia/Bangkok|🇹🇭|Bangkok (ICT)">🇹🇭 Thailand - Bangkok (ICT)</option>
+                <option value="Asia/Dubai|🇦🇪|Dubai (GST)">🇦🇪 UAE - Dubai (GST)</option>
+                <option value="Europe/London|🇬🇧|London (GMT/BST)">🇬🇧 UK - London (GMT/BST)</option>
+                <option value="America/Chicago|🇺🇸|Chicago (CST/CDT)">🇺🇸 USA - Chicago (CST/CDT)</option>
+                <option value="Pacific/Honolulu|🇺🇸|Honolulu (HST)">🇺🇸 USA - Honolulu (HST)</option>
+                <option value="America/Los_Angeles|🇺🇸|Los Angeles (PST/PDT)">🇺🇸 USA - Los Angeles (PST/PDT)</option>
+                <option value="America/New_York|🇺🇸|New York (EST/EDT)">🇺🇸 USA - New York (EST/EDT)</option>
+            </select>
+            <select id="country-select">
+                <option value="" disabled selected>Select a city</option>
+                <option value="Asia/Tokyo|🇯🇵|Japan (JST)">🇯🇵 Japan (JST)</option>
+                <option value="UTC|🌐|UTC">🌐 UTC (Coordinated Universal Time)</option>
+                <option value="Australia/Sydney|🇦🇺|Sydney (AEDT/AEST)">🇦🇺 Australia - Sydney (AEDT/AEST)</option>
+                <option value="Europe/Brussels|🇧🇪|Brussels (CET/CEST)">🇧🇪 Belgium - Brussels (CET/CEST)</option>
+                <option value="America/Sao_Paulo|🇧🇷|São Paulo (BRT/BRST)">🇧🇷 Brazil - São Paulo (BRT/BRST)</option>
+                <option value="America/Toronto|🇨🇦|Toronto (EST/EDT)">🇨🇦 Canada - Toronto (EST/EDT)</option>
+                <option value="America/Vancouver|🇨🇦|Vancouver (PST/PDT)">🇨🇦 Canada - Vancouver (PST/PDT)</option>
+                <option value="Asia/Shanghai|🇨🇳|Shanghai (CST)">🇨🇳 China - Shanghai (CST)</option>
+                <option value="Africa/Cairo|🇪🇬|Cairo (EET)">🇪🇬 Egypt - Cairo (EET)</option>
+                <option value="Europe/Paris|🇫🇷|Paris (CET/CEST)">🇫🇷 France - Paris (CET/CEST)</option>
+                <option value="Europe/Berlin|🇩🇪|Berlin (CET/CEST)">🇩🇪 Germany - Berlin (CET/CEST)</option>
+                <option value="Asia/Hong_Kong|🇭🇰|Hong Kong (HKT)">🇭🇰 Hong Kong (HKT)</option>
+                <option value="Asia/Kolkata|🇮🇳|Delhi (IST)">🇮🇳 India - Delhi (IST)</option>
+                <option value="Europe/Rome|🇮🇹|Rome (CET/CEST)">🇮🇹 Italy - Rome (CET/CEST)</option>
+                <option value="America/Mexico_City|🇲🇽|Mexico City (CST/CDT)">🇲🇽 Mexico - Mexico City (CST/CDT)</option>
+                <option value="Pacific/Auckland|🇳🇿|Auckland (NZDT/NZST)">🇳🇿 New Zealand - Auckland (NZDT/NZST)</option>
+                <option value="Europe/Moscow|🇷🇺|Moscow (MSK)">🇷🇺 Russia - Moscow (MSK)</option>
+                <option value="Asia/Singapore|🇸🇬|Singapore (SGT)">🇸🇬 Singapore (SGT)</option>
+                <option value="Asia/Seoul|🇰🇷|Seoul (KST)">🇰🇷 South Korea - Seoul (KST)</option>
+                <option value="Europe/Madrid|🇪🇸|Madrid (CET/CEST)">🇪🇸 Spain - Madrid (CET/CEST)</option>
+                <option value="Asia/Bangkok|🇹🇭|Bangkok (ICT)">🇹🇭 Thailand - Bangkok (ICT)</option>
+                <option value="Asia/Dubai|🇦🇪|Dubai (GST)">🇦🇪 UAE - Dubai (GST)</option>
+                <option value="Europe/London|🇬🇧|London (GMT/BST)">🇬🇧 UK - London (GMT/BST)</option>
+                <option value="America/Chicago|🇺🇸|Chicago (CST/CDT)">🇺🇸 USA - Chicago (CST/CDT)</option>
+                <option value="Pacific/Honolulu|🇺🇸|Honolulu (HST)">🇺🇸 USA - Honolulu (HST)</option>
+                <option value="America/Los_Angeles|🇺🇸|Los Angeles (PST/PDT)">🇺🇸 USA - Los Angeles (PST/PDT)</option>
+                <option value="America/New_York|🇺🇸|New York (EST/EDT)">🇺🇸 USA - New York (EST/EDT)</option>
+            </select>
+            <button id="add-btn">Add to List</button>
+        </div>
+        
+        <div class="time-input-container">
+            <label for="time-input" id="time-input-label">Set Custom Time (JST):</label>
+            <input type="text" id="time-input" placeholder="2025/10/08 14:30:00">
+            <button id="clear-time-btn">Reset to Current Time</button>
+        </div>
+        
+        <div id="timelines">
+        </div>
+    </div>
+
+    <script>
+        const addedTimezones = new Set();
+        const STORAGE_KEY = 'worldTimeComparison_timezones';
+        const ORDER_STORAGE_KEY = 'worldTimeComparison_order';
+        const BASE_COUNTRY_KEY = 'worldTimeComparison_baseCountry';
+        let customTime = null;
+        let clockInterval = null;
+        let draggedElement = null;
+        let baseTimezone = 'Asia/Tokyo'; // デフォルトの基準タイムゾーン
+        
+        function parseCustomTime(input) {
+            // Format: yyyy/mm/dd hh:mm:ss
+            const match = input.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{1,2}):(\d{1,2})$/);
+            if (!match) return null;
+            
+            const [, year, month, day, hour, minute, second] = match;
+            
+            // 入力された日時の文字列（基準タイムゾーンでの日時）
+            const inputString = `${String(month).padStart(2, '0')}/${String(day).padStart(2, '0')}/${year}, ${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:${String(second).padStart(2, '0')}`;
+            
+            // 初期推定値として、ローカルタイムゾーンで解釈
+            let estimatedDate = new Date(year, month - 1, day, hour, minute, second);
+            
+            // 最大10回の反復で収束させる
+            for (let i = 0; i < 10; i++) {
+                const formatted = estimatedDate.toLocaleString('en-US', { 
+                    timeZone: baseTimezone,
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    hour12: false
+                });
+                
+                if (formatted === inputString) {
+                    // 一致した！
+                    return estimatedDate;
+                }
+                
+                // 差分を計算
+                const formattedDate = new Date(formatted);
+                const targetDate = new Date(inputString);
+                const diff = targetDate.getTime() - formattedDate.getTime();
+                
+                // 差分を適用して次の推定値を作成
+                estimatedDate = new Date(estimatedDate.getTime() + diff);
+            }
+            
+            // 収束しなかった場合でも、最後の推定値を返す
+            if (isNaN(estimatedDate.getTime())) return null;
+            return estimatedDate;
+        }
+        
+        function getCurrentTime() {
+            if (customTime) {
+                return customTime;
+            }
+            return new Date();
+        }
+        
+        function setupDragAndDrop(section) {
+            section.setAttribute('draggable', 'true');
+            
+            section.addEventListener('dragstart', function(e) {
+                draggedElement = this;
+                this.classList.add('dragging');
+                e.dataTransfer.effectAllowed = 'move';
+            });
+            
+            section.addEventListener('dragend', function(e) {
+                this.classList.remove('dragging');
+                document.querySelectorAll('.timeline-section').forEach(s => {
+                    s.classList.remove('drag-over');
+                });
+                saveOrder();
+            });
+            
+            section.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                
+                if (draggedElement !== this) {
+                    this.classList.add('drag-over');
+                }
+                return false;
+            });
+            
+            section.addEventListener('dragleave', function(e) {
+                this.classList.remove('drag-over');
+            });
+            
+            section.addEventListener('drop', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                if (draggedElement !== this) {
+                    const container = document.getElementById('timelines');
+                    const allSections = [...container.children];
+                    const draggedIndex = allSections.indexOf(draggedElement);
+                    const targetIndex = allSections.indexOf(this);
+                    
+                    if (draggedIndex < targetIndex) {
+                        this.parentNode.insertBefore(draggedElement, this.nextSibling);
+                    } else {
+                        this.parentNode.insertBefore(draggedElement, this);
+                    }
+                }
+                
+                this.classList.remove('drag-over');
+                return false;
+            });
+        }
+        
+        function saveToLocalStorage() {
+            const timezones = Array.from(addedTimezones);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(timezones));
+        }
+        
+        function saveOrder() {
+            const sections = document.querySelectorAll('.timeline-section');
+            const order = Array.from(sections).map(section => section.dataset.timezone);
+            localStorage.setItem(ORDER_STORAGE_KEY, JSON.stringify(order));
+        }
+        
+        function loadOrder() {
+            try {
+                const saved = localStorage.getItem(ORDER_STORAGE_KEY);
+                if (saved) {
+                    return JSON.parse(saved);
+                }
+            } catch (e) {
+                console.error('Failed to load order from localStorage:', e);
+            }
+            return null;
+        }
+        
+        function loadFromLocalStorage() {
+            try {
+                const saved = localStorage.getItem(STORAGE_KEY);
+                if (saved) {
+                    const timezones = JSON.parse(saved);
+                    return timezones;
+                }
+            } catch (e) {
+                console.error('Failed to load from localStorage:', e);
+            }
+            return []; // デフォルトは空（基準国は別途追加される）
+        }
+        
+        function createHourMarks(container) {
+            container.innerHTML = '';
+            
+            for (let i = 0; i <= 24; i++) {
+                if (i % 3 === 0) {
+                    const mark = document.createElement('div');
+                    mark.className = 'hour-mark';
+                    mark.style.left = `${(i / 24) * 100}%`;
+                    container.appendChild(mark);
+                    
+                    const label = document.createElement('div');
+                    label.className = 'hour-label';
+                    label.textContent = `${i}`;
+                    label.style.left = `${(i / 24) * 100}%`;
+                    container.appendChild(label);
+                }
+            }
+        }
+        
+        function updateClock(section, timezone) {
+            const now = getCurrentTime();
+            const time = new Date(now.toLocaleString('en-US', { timeZone: timezone }));
+            const hours = time.getHours();
+            const minutes = time.getMinutes();
+            const seconds = time.getSeconds();
+            const progress = (hours + minutes / 60 + seconds / 3600) / 24 * 100;
+            
+            const timeDisplay = section.querySelector('.time-display');
+            const dateDisplay = section.querySelector('.date-display');
+            const marker = section.querySelector('.current-marker');
+            const markerTime = section.querySelector('.marker-time');
+            
+            if (timeDisplay) {
+                timeDisplay.textContent = 
+                    `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            }
+            
+            if (dateDisplay) {
+                const dateText = time.toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' });
+                dateDisplay.textContent = dateText;
+                
+                // 基準タイムゾーンと比較して前日・翌日を判定
+                const baseTime = new Date(now.toLocaleString('en-US', { timeZone: baseTimezone }));
+                
+                const baseDateOnly = new Date(baseTime.getFullYear(), baseTime.getMonth(), baseTime.getDate());
+                const localDateOnly = new Date(time.getFullYear(), time.getMonth(), time.getDate());
+                
+                const diffDays = Math.round((localDateOnly - baseDateOnly) / (1000 * 60 * 60 * 24));
+                
+                // クラスをリセット
+                dateDisplay.classList.remove('previous-day', 'next-day');
+                
+                if (diffDays === -1) {
+                    dateDisplay.classList.add('previous-day');
+                } else if (diffDays === 1) {
+                    dateDisplay.classList.add('next-day');
+                }
+            }
+            
+            if (marker) {
+                marker.style.left = `${progress}%`;
+            }
+            
+            if (markerTime) {
+                markerTime.textContent = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+            }
+            
+            if (timezone !== baseTimezone) {
+                const now = getCurrentTime();
+                const baseTime = new Date(now.toLocaleString('en-US', { timeZone: baseTimezone }));
+                const diffMs = time.getTime() - baseTime.getTime();
+                const diffHours = Math.round(diffMs / (1000 * 60 * 60));
+                const sign = diffHours > 0 ? '+' : '';
+                
+                // 基準タイムゾーンの略称を取得
+                const baseSelect = document.getElementById('base-country-select');
+                const baseOption = baseSelect.options[baseSelect.selectedIndex];
+                const baseText = baseOption.text;
+                const tzMatch = baseText.match(/\(([^)]+)\)/);
+                const baseTzAbbr = tzMatch ? tzMatch[1] : 'Base';
+                
+                const badge = section.querySelector('.time-diff-badge');
+                if (badge) {
+                    badge.textContent = `${baseTzAbbr} ${sign}${diffHours} hrs`;
+                }
+            }
+        }
+        
+        function updateAllClocks() {
+            const sections = document.querySelectorAll('.timeline-section');
+            sections.forEach(section => {
+                const timezone = section.dataset.timezone;
+                updateClock(section, timezone);
+            });
+        }
+        
+        function getTimezoneInfo(timezone) {
+            const options = document.querySelectorAll('#country-select option');
+            for (let option of options) {
+                const [tz, flag, name] = option.value.split('|');
+                if (tz === timezone) {
+                    return { flag, name };
+                }
+            }
+            return null;
+        }
+        
+        function addTimezone(timezone, flag, name, isBase = false) {
+            // 基準国でない場合のみ重複チェック
+            if (!isBase && addedTimezones.has(timezone)) {
+                alert('This city has already been added');
+                return;
+            }
+            
+            // 基準国の場合、既に表示されているかチェック（基準国は別扱い）
+            if (isBase) {
+                const existingBase = document.querySelector(`[data-timezone="${timezone}"]`);
+                if (existingBase) {
+                    return; // 既に基準国として表示されている
+                }
+            }
+            
+            // 基準国でない場合のみSetに追加
+            if (!isBase) {
+                addedTimezones.add(timezone);
+            }
+            saveToLocalStorage();
+            
+            const section = document.createElement('div');
+            section.className = 'timeline-section';
+            section.dataset.timezone = timezone;
+            
+            // 基準国でない場合のみ削除ボタンを表示
+            const removeButton = isBase ? '' : `<button class="remove-btn" onclick="removeTimezone('${timezone}', this)">×</button>`;
+            
+            // 基準国の場合は時差バッジを空にする（updateClock内で設定される）
+            const timeDiffBadge = isBase ? '' : '<span class="time-diff-badge"></span>';
+            
+            section.innerHTML = `
+                ${removeButton}
+                <div class="country-header">
+                    <div class="flag">${flag}</div>
+                    <div class="country-info">
+                        <div class="country-name">
+                            ${name}
+                            ${timeDiffBadge}
+                        </div>
+                        <div class="date-info date-display">---- -- --</div>
+                    </div>
+                    <div class="current-time time-display">--:--:--</div>
+                </div>
+                
+                <div class="timeline-container">
+                    <div class="timeline-bar">
+                        <div class="hour-marks"></div>
+                        <div class="current-marker">
+                            <div class="time-label marker-time">--:--</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('timelines').appendChild(section);
+            
+            const hourMarksContainer = section.querySelector('.hour-marks');
+            createHourMarks(hourMarksContainer);
+            
+            setupDragAndDrop(section);
+            
+            updateClock(section, timezone);
+        }
+        
+        function removeTimezone(timezone, btn) {
+            if (timezone === 'Asia/Tokyo') {
+                return;
+            }
+            addedTimezones.delete(timezone);
+            saveToLocalStorage();
+            btn.closest('.timeline-section').remove();
+            saveOrder();
+        }
+        
+        function initializeFromLocalStorage() {
+            const savedTimezones = loadFromLocalStorage();
+            const savedOrder = loadOrder();
+            
+            // 順序が保存されている場合はその順序で、ない場合はsavedTimezones順で表示
+            const orderedTimezones = savedOrder || savedTimezones;
+            
+            orderedTimezones.forEach((timezone, index) => {
+                // 基準国と同じタイムゾーンはスキップ（既に表示されている）
+                if (timezone === baseTimezone) {
+                    return;
+                }
+                
+                // 既に表示されている場合もスキップ
+                if (document.querySelector(`[data-timezone="${timezone}"]`)) {
+                    return;
+                }
+                
+                const info = getTimezoneInfo(timezone);
+                if (info) {
+                    addTimezone(timezone, info.flag, info.name, false);
+                }
+            });
+            
+            // 保存された順序がある場合、その順序に並び替え
+            if (savedOrder) {
+                const container = document.getElementById('timelines');
+                savedOrder.forEach(timezone => {
+                    const section = document.querySelector(`[data-timezone="${timezone}"]`);
+                    if (section) {
+                        container.appendChild(section);
+                    }
+                });
+            }
+        }
+        
+        document.getElementById('add-btn').addEventListener('click', function() {
+            const select = document.getElementById('country-select');
+            const value = select.value;
+            
+            if (!value) {
+                alert('Please select a city');
+                return;
+            }
+            
+            const [timezone, flag, name] = value.split('|');
+            addTimezone(timezone, flag, name);
+            
+            select.value = '';
+        });
+        
+        document.getElementById('time-input').addEventListener('input', function(e) {
+            const input = e.target.value.trim();
+            if (!input) {
+                customTime = null;
+                if (clockInterval) clearInterval(clockInterval);
+                clockInterval = setInterval(updateAllClocks, 1000);
+                updateAllClocks();
+                return;
+            }
+            
+            const parsedTime = parseCustomTime(input);
+            if (parsedTime) {
+                customTime = parsedTime;
+                if (clockInterval) clearInterval(clockInterval);
+                clockInterval = null;
+                updateAllClocks();
+            }
+        });
+        
+        document.getElementById('clear-time-btn').addEventListener('click', function() {
+            document.getElementById('time-input').value = '';
+            customTime = null;
+            if (clockInterval) clearInterval(clockInterval);
+            clockInterval = setInterval(updateAllClocks, 1000);
+            updateAllClocks();
+        });
+        
+        // Set Custom Timeのラベルを更新
+        function updateSetTimeLabel() {
+            const baseSelect = document.getElementById('base-country-select');
+            const baseOption = baseSelect.options[baseSelect.selectedIndex];
+            const baseText = baseOption.text;
+            // 括弧内のタイムゾーン略称を抽出（例：🇯🇵 Japan (JST) -> JST）
+            const tzMatch = baseText.match(/\(([^)]+)\)/);
+            const baseTzAbbr = tzMatch ? tzMatch[1] : 'Base';
+            
+            const label = document.getElementById('time-input-label');
+            label.textContent = `Set Custom Time (${baseTzAbbr}):`;
+        }
+        
+        // 基準国が変更されたときの処理
+        document.getElementById('base-country-select').addEventListener('change', function() {
+            const value = this.value;
+            const [timezone, flag, name] = value.split('|');
+            baseTimezone = timezone;
+            
+            // Set Timeのラベルを更新
+            updateSetTimeLabel();
+            
+            // 既存のタイムラインをすべてクリア
+            document.getElementById('timelines').innerHTML = '';
+            addedTimezones.clear();
+            
+            // 新しい基準国を追加（isBase = true で削除ボタンなし）
+            addTimezone(timezone, flag, name, true);
+            
+            // localStorageに保存
+            localStorage.setItem(BASE_COUNTRY_KEY, value);
+            saveToLocalStorage();
+        });
+        
+        // 基準国の読み込み
+        function loadBaseCountry() {
+            try {
+                const saved = localStorage.getItem(BASE_COUNTRY_KEY);
+                if (saved) {
+                    const select = document.getElementById('base-country-select');
+                    select.value = saved;
+                    const [timezone, flag, name] = saved.split('|');
+                    baseTimezone = timezone;
+                    return { timezone, flag, name };
+                }
+            } catch (e) {
+                console.error('Failed to load base country:', e);
+            }
+            // デフォルト
+            return { timezone: 'Asia/Tokyo', flag: '🇯🇵', name: 'Japan (JST)' };
+        }
+        
+        // 初期化時に基準国を追加（isBase = true で削除ボタンなし）
+        const baseCountry = loadBaseCountry();
+        addTimezone(baseCountry.timezone, baseCountry.flag, baseCountry.name, true);
+        
+        // Set Timeのラベルを初期化
+        updateSetTimeLabel();
+        
+        initializeFromLocalStorage();
+        updateAllClocks();
+        clockInterval = setInterval(updateAllClocks, 1000);
+    </script>
+</body>
+</html>

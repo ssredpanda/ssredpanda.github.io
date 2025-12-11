@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>思い出ソング年表</title>
+  <style>
+    :root {
+      --bg-start: #0f1c30;
+      --bg-end: #112a3f;
+      --card: rgba(255, 255, 255, 0.08);
+      --accent: #00c2a8;
+      --text: #e8f1f7;
+      --muted: #9ab8ce;
+      --shadow: 0 25px 60px rgba(0, 0, 0, 0.35);
+      --radius: 18px;
+      --font: "SF Pro Display", "Segoe UI", "Hiragino Sans", "Noto Sans JP", system-ui, -apple-system, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: var(--font);
+      background: radial-gradient(circle at 20% 20%, #16345a, #0e1b2e 50%), radial-gradient(circle at 80% 0%, #0a3a3c, #0f1c30 55%), linear-gradient(135deg, var(--bg-start), var(--bg-end));
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 16px;
+    }
+    .card {
+      width: min(1400px, 100%);
+      background: var(--card);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 28px;
+      backdrop-filter: blur(12px);
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+    h1 {
+      margin: 0;
+      font-size: clamp(22px, 3vw, 28px);
+      letter-spacing: 0.02em;
+    }
+    .lead {
+      color: var(--muted);
+      margin: 6px 0 0;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    form {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      border: 0;
+    }
+    input[type="number"] {
+      appearance: textfield;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text);
+      font-size: 16px;
+      min-width: 160px;
+    }
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    button {
+      padding: 12px 18px;
+      border-radius: 12px;
+      border: none;
+      background: linear-gradient(135deg, #00c2a8, #36e0c2);
+      color: #0c1a24;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      cursor: pointer;
+      box-shadow: 0 15px 35px rgba(0, 194, 168, 0.35);
+      transition: transform 150ms ease, box-shadow 150ms ease;
+    }
+    button:hover { transform: translateY(-1px); box-shadow: 0 18px 40px rgba(0, 194, 168, 0.45); }
+    button:active { transform: translateY(0); }
+    .results {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 18px;
+    }
+    .stage {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 14px;
+      padding: 16px;
+    }
+    .stage h3 {
+      margin: 0 0 8px;
+      font-size: 16px;
+      color: var(--accent);
+      letter-spacing: 0.01em;
+    }
+    .year {
+      margin: 10px 0;
+      padding: 10px 12px;
+      background: rgba(0, 0, 0, 0.18);
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .year-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+    .year strong { display: inline-block; min-width: 64px; color: var(--text); font-size: 15px; }
+    .count { color: var(--muted); font-size: 12px; letter-spacing: 0.02em; }
+    .song-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: grid;
+      gap: 8px;
+    }
+    .song {
+      padding: 8px 10px;
+      background: rgba(255, 255, 255, 0.04);
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      color: var(--muted);
+      line-height: 1.4;
+      font-size: 14px;
+    }
+    .song.empty { color: #f2c94c; }
+    .notice {
+      color: #ffb347;
+      font-size: 13px;
+      margin-top: 8px;
+    }
+    @media (max-width: 1100px) {
+      .results { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    }
+    @media (max-width: 860px) {
+      .results { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 640px) {
+      .card { padding: 22px; }
+      header { flex-direction: column; }
+      form { width: 100%; }
+      input[type="number"] { flex: 1; min-width: 0; width: 100%; }
+      button { width: 100%; text-align: center; justify-content: center; display: flex; }
+      .results { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <header>
+      <div>
+        <h1>年齢から思い出ソングをさかのぼる</h1>
+        <p class="lead">年齢を入れると、中学・高校・大学のころに流行っていた曲をざっくり表示します。<br>カジュアルな目安なので「懐かしいかも？」くらいの感覚でどうぞ。</p>
+      </div>
+      <form id="age-form">
+        <label for="age" class="sr-only">年齢</label>
+        <input id="age" name="age" type="number" min="6" max="90" placeholder="例: 24" required>
+        <button type="submit">表示する</button>
+      </form>
+    </header>
+    <section id="result" class="results"></section>
+    <p id="fallback" class="notice" style="display:none;"></p>
+  </main>
+
+  <script>
+    // 年ごとのざっくり流行曲データ（1976年以降で簡易）
+    const songsByYear = {
+      1976: ["ABBA - Dancing Queen", "山口百恵 - 横須賀ストーリー", "キャンディーズ - 春一番", "Queen - Bohemian Rhapsody", "沢田研二 - 勝手にしやがれ"],
+      1977: ["ピンク・レディー - UFO", "山口百恵 - イミテイション・ゴールド", "Eagles - Hotel California", "Queen - We Will Rock You", "Fleetwood Mac - Dreams"],
+      1978: ["サザンオールスターズ - 勝手にシンドバッド", "ゴダイゴ - モンキーマジック", "Bob Marley - Is This Love", "Boney M. - Rivers of Babylon", "Earth, Wind & Fire - September"],
+      1979: ["ゴダイゴ - 銀河鉄道999", "オフコース - さよなら", "The Knack - My Sharona", "Michael Jackson - Don't Stop 'Til You Get Enough", "Queen - Don't Stop Me Now"],
+      1980: ["松田聖子 - 青い珊瑚礁", "YMO - RYDEEN", "Queen - Another One Bites the Dust", "久保田早紀 - 異邦人", "松山千春 - 長い夜"],
+      1981: ["寺尾聰 - ルビーの指環", "松田聖子 - 夏の扉", "Duran Duran - Girls on Film", "大瀧詠一 - 恋するカレン", "村下孝蔵 - 踊り子"],
+      1982: ["中森明菜 - 少女A", "Michael Jackson - Thriller", "Toto - Africa", "松田聖子 - 赤いスイートピー", "小泉今日子 - 私の16才"],
+      1983: ["松田聖子 - SWEET MEMORIES", "Eurythmics - Sweet Dreams", "Cyndi Lauper - Girls Just Want to Have Fun", "村下孝蔵 - 初恋", "安全地帯 - ワインレッドの心"],
+      1984: ["中森明菜 - サザン・ウインド", "Wham! - Wake Me Up Before You Go-Go", "Madonna - Like a Virgin", "松田聖子 - Rock'n Rouge", "TUBE - あー夏休み"],
+      1985: ["レベッカ - フレンズ", "尾崎豊 - シェリー", "a-ha - Take On Me", "中森明菜 - ミ・アモーレ", "Starship - We Built This City"],
+      1986: ["本田美奈子. - 1986年のマリリン", "Bon Jovi - Livin' on a Prayer", "安全地帯 - 友よ", "TM NETWORK - Self Control", "Madonna - Papa Don't Preach"],
+      1987: ["TM NETWORK - Get Wild", "光GENJI - STAR LIGHT", "Whitesnake - Is This Love", "U2 - With or Without You", "BOØWY - MARIONETTE"],
+      1988: ["長渕剛 - とんぼ", "PRINCESS PRINCESS - 19 GROWING UP", "Rick Astley - Together Forever", "氷室京介 - ANGEL", "B'z - だからその手を離して"],
+      1989: ["PRINCESS PRINCESS - Diamonds", "Wink - 淋しい熱帯魚", "Madonna - Like a Prayer", "B'z - BE THERE", "TM NETWORK - DIVE INTO YOUR BODY"],
+      1990: ["B.B.クィーンズ - おどるポンポコリン", "TMN - TIME TO COUNT DOWN", "Mariah Carey - Vision of Love", "米米CLUB - 浪漫飛行", "岡村靖幸 - イケナイコトカイ"],
+      1991: ["小田和正 - ラブ・ストーリーは突然に", "ZARD - Good-bye My Loneliness", "Nirvana - Smells Like Teen Spirit", "LINDBERG - 今すぐKiss Me", "CHAGE&ASKA - SAY YES"],
+      1992: ["米米CLUB - 君がいるだけで", "Mr.Children - 君がいた夏", "Dr. Alban - It's My Life", "ZARD - 負けないで", "Mariah Carey - I'll Be There"],
+      1993: ["ZARD - 揺れる想い", "サザンオールスターズ - エロティカ・セブン", "Mariah Carey - Hero", "TRF - EZ DO DANCE", "小沢健二 - 愛し愛されて生きるのさ"],
+      1994: ["Mr.Children - innocent world", "篠原涼子 with t.komuro - 恋しさと せつなさと 心強さと", "Green Day - Basket Case", "大黒摩季 - あなただけ見つめてる", "DREAMS COME TRUE - 未来予想図II"],
+      1995: ["スピッツ - ロビンソン", "大黒摩季 - ら・ら・ら", "Oasis - Wonderwall", "中島みゆき - 旅人のうた", "久保田利伸 - LA・LA・LA LOVE SONG"],
+      1996: ["globe - DEPARTURES", "PUFFY - アジアの純真", "Backstreet Boys - Quit Playing Games", "安室奈美恵 - Don't wanna cry", "スピッツ - チェリー"],
+      1997: ["GLAY - HOWEVER", "Radiohead - Karma Police", "Backstreet Boys - Everybody", "Le Couple - ひだまりの詩", "安室奈美恵 - CAN YOU CELEBRATE?"],
+      1998: ["Kiroro - 長い間", "L'Arc-en-Ciel - winter fall", "宇多田ヒカル - Automatic", "Every Little Thing - Time goes by", "SPEED - my graduation"],
+      1999: ["宇多田ヒカル - First Love", "GLAY - Winter, again", "Ricky Martin - Livin' la Vida Loca", "椎名林檎 - 本能", "浜崎あゆみ - Boys & Girls"],
+      2000: ["サザンオールスターズ - TSUNAMI", "宇多田ヒカル - Can You Keep A Secret?", "浜崎あゆみ - M", "Dragon Ash - グラウンドゼロ", "倉木麻衣 - Love, Day After Tomorrow"],
+      2001: ["宇多田ヒカル - traveling", "MISIA - Everything", "CHEMISTRY - PIECES OF A DREAM", "モーニング娘。 - ザ☆ピ〜ス！", "平井堅 - 大きな古時計"],
+      2002: ["浜崎あゆみ - H", "Avril Lavigne - Complicated", "ZONE - secret base ～君がくれたもの～", "モーニング娘。 - そうだ! We're ALIVE", "EXILE - Your eyes only 〜曖昧なぼくの輪郭〜"],
+      2003: ["SMAP - 世界に一つだけの花", "ORANGE RANGE - 上海ハニー", "RIP SLYME - 楽園ベイベー", "一青窈 - もらい泣き", "Beyoncé - Crazy In Love"],
+      2004: ["大塚愛 - さくらんぼ", "ORANGE RANGE - 花", "Usher - Yeah!", "平井堅 - 瞳をとじて", "Mr.Children - Sign"],
+      2005: ["Def Tech - My Way", "ケツメイシ - さくら", "Green Day - Boulevard of Broken Dreams", "レミオロメン - 粉雪", "YUKI - JOY"],
+      2006: ["YUI - Good-bye days", "Aqua Timez - 決意の朝に", "Justin Timberlake - SexyBack", "コブクロ - 桜", "スキマスイッチ - ボクノート"],
+      2007: ["嵐 - Love so sweet", "Perfume - ポリリズム", "Alicia Keys - No One", "宇多田ヒカル - Flavor Of Life", "青山テルマ feat. SoulJa - そばにいるね"],
+      2008: ["Mr.Children - HANABI", "Perfume - Dream Fighter", "Taylor Swift - Love Story", "青山テルマ feat. SoulJa - そばにいるね", "GReeeeN - キセキ"],
+      2009: ["嵐 - Believe", "The Black Eyed Peas - I Gotta Feeling", "Lady Gaga - Poker Face", "いきものがかり - じょいふる", "西野カナ - 君に会いたくなるから"],
+      2010: ["AKB48 - ヘビーローテーション", "Katy Perry - Teenage Dream", "Justin Bieber - Baby", "いきものがかり - ありがとう", "西野カナ - 会いたくて 会いたくて"],
+      2011: ["Adele - Rolling in the Deep", "KARA - Mister", "少女時代 - MR. TAXI", "AKB48 - フライングゲット", "福山雅治 - 家族になろうよ"],
+      2012: ["PSY - Gangnam Style", "ゴールデンボンバー - 女々しくて", "Carly Rae Jepsen - Call Me Maybe", "きゃりーぱみゅぱみゅ - ファッションモンスター", "miwa - ヒカリヘ"],
+      2013: ["Imagine Dragons - Radioactive", "きゃりーぱみゅぱみゅ - にんじゃりばんばん", "ONE OK ROCK - Deeper Deeper", "福山雅治 - 誕生日には真白な百合を", "Bruno Mars - Treasure"],
+      2014: ["SEKAI NO OWARI - Dragon Night", "Pharrell Williams - Happy", "Let It Go ～ありのままで～", "米津玄師 - アイネクライネ", "Taylor Swift - Shake It Off"],
+      2015: ["back number - クリスマスソング", "西野カナ - トリセツ", "Wiz Khalifa - See You Again", "三代目 J Soul Brothers - R.Y.U.S.E.I.", "Adele - Hello"],
+      2016: ["RADWIMPS - 前前前世", "ピコ太郎 - PPAP", "The Chainsmokers - Closer", "星野源 - 恋", "Ariana Grande - Into You"],
+      2017: ["DAOKO × 米津玄師 - 打上花火", "Ed Sheeran - Shape of You", "あいみょん - 君はロックを聴かない", "TWICE - TT", "Kendrick Lamar - HUMBLE."],
+      2018: ["米津玄師 - Lemon", "DA PUMP - U.S.A.", "あいみょん - マリーゴールド", "Queen - Bohemian Rhapsody (Movie)", "Ariana Grande - thank u, next"],
+      2019: ["Official髭男dism - Pretender", "King Gnu - 白日", "米津玄師 - 馬と鹿", "Billie Eilish - bad guy", "あいみょん - ハルノヒ"],
+      2020: ["YOASOBI - 夜に駆ける", "LiSA - 炎", "NiziU - Make you happy", "BTS - Dynamite", "瑛人 - 香水"],
+      2021: ["Ado - うっせぇわ", "YOASOBI - 怪物", "BTS - Butter", "優里 - ドライフラワー", "Official髭男dism - Cry Baby"],
+      2022: ["Official髭男dism - ミックスナッツ", "Ado - 新時代", "back number - 水平線", "YOASOBI - 祝福", "Beyoncé - BREAK MY SOUL"],
+      2023: ["YOASOBI - アイドル", "Mrs. GREEN APPLE - Magic", "King Gnu - SPECIALZ", "back number - 怪獣のサイズ", "Ado - 唱"],
+      2024: ["Ado - 君のまま", "Mrs. GREEN APPLE - Dear", "Vaundy - 怪獣の花唄", "YOASOBI - 群青", "Taylor Swift - Fortnight"]
+    };
+
+    const stageOffsets = {
+      "中学生 (12-14歳)": [12, 13, 14],
+      "高校生 (15-17歳)": [15, 16, 17],
+      "大学生 (18-21歳)": [18, 19, 20, 21],
+      "社会人 (22-25歳)": [22, 23, 24, 25]
+    };
+
+    const form = document.getElementById("age-form");
+    const ageInput = document.getElementById("age");
+    const resultEl = document.getElementById("result");
+    const fallbackEl = document.getElementById("fallback");
+
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const age = Number(ageInput.value);
+      if (!age || age < 6 || age > 90) {
+        showNotice("6～90の間で入力してください。");
+        resultEl.innerHTML = "";
+        return;
+      }
+      render(age);
+    });
+
+    function render(age) {
+      const currentYear = new Date().getFullYear();
+      const birthYear = currentYear - age;
+      const blocks = [];
+
+      for (const [label, offsets] of Object.entries(stageOffsets)) {
+        const years = offsets.map(offset => birthYear + offset);
+        const entries = years.map(year => ({
+          year,
+          songs: songsByYear[year] || null
+        }));
+        blocks.push({ label, entries });
+      }
+
+      const missing = blocks.some(block => block.entries.some(e => !e.songs));
+      fallbackEl.style.display = missing ? "block" : "none";
+      if (missing) showNotice("データは1976年～現在あたりの目安です。範囲外の年は「データなし」と表示します。");
+      else fallbackEl.textContent = "";
+
+      resultEl.innerHTML = blocks.map(block => createStageHTML(block)).join("");
+    }
+
+    function createStageHTML(block) {
+      const yearsHtml = block.entries.map(entry => {
+        const hasSongs = Array.isArray(entry.songs) && entry.songs.length;
+        const songs = hasSongs
+          ? entry.songs.map(song => `<li class="song">${song}</li>`).join("")
+          : `<li class="song empty">データなし</li>`;
+        const countText = hasSongs ? `${entry.songs.length}曲` : "0曲";
+        return `<div class="year"><div class="year-header"><strong>${entry.year}年</strong><span class="count">${countText}</span></div><ul class="song-list">${songs}</ul></div>`;
+      }).join("");
+      return `<article class="stage"><h3>${block.label}</h3>${yearsHtml}</article>`;
+    }
+
+    function showNotice(message) {
+      fallbackEl.textContent = message;
+    }
+
+    // デモ用に初期表示を出しておく
+    ageInput.value = 24;
+    render(24);
+  </script>
+</body>
+</html>

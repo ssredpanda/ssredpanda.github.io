@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="favicon.ico">
+    <title>トラッキングアプリ</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #f9fafb;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            padding: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .header {
+            margin-bottom: 24px;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            color: #1f2937;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            color: #6b7280;
+        }
+
+        .table-container {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .table-header {
+            display: grid;
+            grid-template-columns: 120px 120px 120px 1fr 80px;
+            gap: 16px;
+            padding: 16px;
+            background-color: #f9fafb;
+            border-bottom: 1px solid #e5e7eb;
+            font-weight: 600;
+            color: #374151;
+        }
+
+        .table-row {
+            display: grid;
+            grid-template-columns: 120px 120px 120px 1fr 80px;
+            gap: 16px;
+            padding: 16px;
+            border-bottom: 1px solid #f3f4f6;
+            align-items: center;
+        }
+
+        .table-row:last-child {
+            border-bottom: none;
+        }
+
+        input[type="date"] {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        input[type="date"]:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+        }
+
+        select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            background-color: white;
+            font-size: 14px;
+        }
+
+        select:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+        }
+
+        .actions-container {
+            display: flex;
+            justify-content: center;
+        }
+
+        .delete-btn {
+            background: none;
+            border: none;
+            color: #ef4444;
+            padding: 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .delete-btn:hover:not(:disabled) {
+            background-color: #fef2f2;
+        }
+
+        .delete-btn:disabled {
+            color: #d1d5db;
+            cursor: not-allowed;
+        }
+
+        .add-btn, .export-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 16px;
+            background-color: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .add-btn:hover, .export-btn:hover {
+            background-color: #2563eb;
+        }
+
+        .export-btn {
+            background-color: #10b981;
+        }
+
+        .export-btn:hover {
+            background-color: #059669;
+        }
+
+        .summary {
+            margin-top: 24px;
+            padding: 16px;
+            background-color: #f9fafb;
+            border-radius: 8px;
+        }
+
+        .summary h3 {
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 12px;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 16px;
+            font-size: 14px;
+        }
+
+        .summary-item {
+            text-align: center;
+        }
+
+        .summary-number {
+            font-size: 32px;
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+
+        .summary-label {
+            color: #6b7280;
+        }
+
+        .blue { color: #3b82f6; }
+        .green { color: #10b981; }
+        .purple { color: #8b5cf6; }
+        .orange { color: #f59e0b; }
+
+        @media (max-width: 768px) {
+            .table-header, .table-row {
+                grid-template-columns: 1fr;
+                gap: 8px;
+            }
+
+            .summary-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>トラッキングアプリ</h1>
+            <p>日々の記録を管理しましょう</p>
+        </div>
+
+        <div class="table-container">
+            <div class="table-header">
+                <div>日付</div>
+                <div>1回目</div>
+                <div>2回目</div>
+                <div>備考</div>
+                <div>操作</div>
+            </div>
+            <div id="entries-container">
+                <!-- エントリがここに動的に追加されます -->
+            </div>
+        </div>
+
+        <div style="display: flex; gap: 12px; justify-content: center; margin-top: 16px; flex-wrap: wrap;">
+            <button class="add-btn" onclick="addEntry()">
+                ➕ 新しいエントリを追加
+            </button>
+            <button class="export-btn" onclick="exportToCSV()">
+                💾 CSV出力
+            </button>
+            <button class="export-btn" onclick="backupData()" style="background-color: #f59e0b;">
+                📦 データバックアップ
+            </button>
+            <label class="export-btn" style="background-color: #8b5cf6; cursor: pointer;">
+                📁 データ復元
+                <input type="file" id="restore-file" accept=".json" style="display: none;" onchange="restoreData(event)">
+            </label>
+        </div>
+
+        <div class="summary">
+            <h3>サマリー</h3>
+            <div class="summary-grid">
+                <div class="summary-item">
+                    <div class="summary-number blue" id="total-entries">0</div>
+                    <div class="summary-label">総エントリ数</div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-number green" id="first-good">0</div>
+                    <div class="summary-label">1回目 ◯</div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-number purple" id="second-good">0</div>
+                    <div class="summary-label">2回目 ◯</div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-number orange" id="total-good">0</div>
+                    <div class="summary-label">合計 ◯ 効果</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // グローバル変数
+        let entries = [];
+        const STORAGE_KEY = 'tracking_app_data';
+
+        // 初期エントリーを生成（2025-08-27から2025-09-30まで）
+        function generateInitialEntries() {
+            const dates = [];
+            const start = new Date('2025-08-27');
+            const end = new Date('2025-09-30');
+
+            for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+                dates.push(new Date(d).toISOString().split('T')[0]);
+            }
+
+            return dates.map((date, index) => ({
+                id: index + 1,
+                date: date,
+                firstTime: '',
+                secondTime: '',
+                notes: ''
+            }));
+        }
+
+        // localStorageからデータを読み込み
+        function loadData() {
+            try {
+                const savedData = localStorage.getItem(STORAGE_KEY);
+                if (savedData) {
+                    const parsedData = JSON.parse(savedData);
+                    if (Array.isArray(parsedData) && parsedData.length > 0) {
+                        // 古いデータ形式から新しい形式に変換
+                        entries = parsedData.map(entry => ({
+                            id: entry.id,
+                            date: entry.date,
+                            firstTime: entry.firstTime === true ? '◯' : (entry.firstTime || ''),
+                            secondTime: entry.secondTime === true ? '◯' : (entry.secondTime || ''),
+                            notes: entry.notes || ''
+                        }));
+                        return;
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to load data:', e);
+            }
+
+            // 保存データが無い場合は初期データを生成
+            entries = generateInitialEntries();
+            saveData();
+        }
+
+        // localStorageにデータを保存
+        function saveData() {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+            } catch (e) {
+                console.error('Failed to save data:', e);
+            }
+        }
+
+        // エントリーを追加
+        function addEntry() {
+            const newEntry = {
+                id: Date.now(),
+                date: '',
+                firstTime: '',
+                secondTime: '',
+                notes: ''
+            };
+            entries.push(newEntry);
+            saveData();
+            renderEntries();
+        }
+
+        // エントリーを削除
+        function removeEntry(id) {
+            if (entries.length > 1) {
+                entries = entries.filter(entry => entry.id !== id);
+                saveData();
+                renderEntries();
+            }
+        }
+
+        // エントリーの値を更新
+        function updateEntry(id, field, value) {
+            const entry = entries.find(e => e.id === id);
+            if (entry) {
+                entry[field] = value;
+                saveData();
+                updateSummary();
+            }
+        }
+
+        // 全エントリーを画面に描画
+        function renderEntries() {
+            const container = document.getElementById('entries-container');
+            if (!container) {
+                console.error('Container not found');
+                return;
+            }
+
+            container.innerHTML = '';
+
+            entries.forEach(entry => {
+                const row = document.createElement('div');
+                row.className = 'table-row';
+                row.innerHTML = `
+                    <div>
+                        <input
+                            type="date"
+                            value="${entry.date}"
+                            onchange="updateEntry(${entry.id}, 'date', this.value)"
+                        >
+                    </div>
+                    <div>
+                        <select onchange="updateEntry(${entry.id}, 'firstTime', this.value)">
+                            <option value="">選択</option>
+                            <option value="◯" ${entry.firstTime === '◯' ? 'selected' : ''}>◯</option>
+                            <option value="△" ${entry.firstTime === '△' ? 'selected' : ''}>△</option>
+                            <option value="✗" ${entry.firstTime === '✗' ? 'selected' : ''}>✗</option>
+                            <option value="忘れた" ${entry.firstTime === '忘れた' ? 'selected' : ''}>忘れた</option>
+                        </select>
+                    </div>
+                    <div>
+                        <select onchange="updateEntry(${entry.id}, 'secondTime', this.value)">
+                            <option value="">選択</option>
+                            <option value="◯" ${entry.secondTime === '◯' ? 'selected' : ''}>◯</option>
+                            <option value="△" ${entry.secondTime === '△' ? 'selected' : ''}>△</option>
+                            <option value="✗" ${entry.secondTime === '✗' ? 'selected' : ''}>✗</option>
+                            <option value="忘れた" ${entry.secondTime === '忘れた' ? 'selected' : ''}>忘れた</option>
+                        </select>
+                    </div>
+                    <div>
+                        <input
+                            type="text"
+                            value="${entry.notes}"
+                            placeholder="備考を入力..."
+                            onchange="updateEntry(${entry.id}, 'notes', this.value)"
+                        >
+                    </div>
+                    <div class="actions-container">
+                        <button
+                            class="delete-btn"
+                            onclick="removeEntry(${entry.id})"
+                            ${entries.length === 1 ? 'disabled' : ''}
+                        >
+                            🗑️
+                        </button>
+                    </div>
+                `;
+                container.appendChild(row);
+            });
+
+            updateSummary();
+        }
+
+        // サマリー統計を更新
+        function updateSummary() {
+            document.getElementById('total-entries').textContent = entries.length;
+            document.getElementById('first-good').textContent =
+                entries.filter(e => e.firstTime === '◯').length;
+            document.getElementById('second-good').textContent =
+                entries.filter(e => e.secondTime === '◯').length;
+            document.getElementById('total-good').textContent =
+                entries.filter(e => e.firstTime === '◯' || e.secondTime === '◯').length;
+        }
+
+        // CSVエクスポート
+        function exportToCSV() {
+            const headers = ['日付', '1回目', '2回目', '備考'];
+            const csvRows = entries.map(entry => [
+                entry.date || '',
+                entry.firstTime || '',
+                entry.secondTime || '',
+                entry.notes || ''
+            ]);
+
+            const allRows = [headers, ...csvRows];
+            const csvContent = allRows.map(row =>
+                row.map(field => `"${field}"`).join(',')
+            ).join('\n');
+
+            const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+
+            link.setAttribute('href', url);
+            link.setAttribute('download', `tracking_data_${new Date().toISOString().split('T')[0]}.csv`);
+            link.style.visibility = 'hidden';
+
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // データバックアップ
+        function backupData() {
+            const backupData = {
+                exportDate: new Date().toISOString(),
+                version: "1.0",
+                entries: entries
+            };
+
+            const jsonContent = JSON.stringify(backupData, null, 2);
+            const blob = new Blob([jsonContent], { type: 'application/json;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+
+            link.setAttribute('href', url);
+            link.setAttribute('download', `tracking_backup_${new Date().toISOString().split('T')[0]}.json`);
+            link.style.visibility = 'hidden';
+
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            alert('データのバックアップが完了しました！');
+        }
+
+        // データ復元
+        function restoreData(event) {
+            const file = event.target.files[0];
+            if (!file) {
+                return;
+            }
+
+            if (file.type !== 'application/json') {
+                alert('JSONファイルを選択してください。');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const backupData = JSON.parse(e.target.result);
+                    
+                    // データの検証
+                    if (!backupData.entries || !Array.isArray(backupData.entries)) {
+                        alert('無効なバックアップファイルです。');
+                        return;
+                    }
+
+                    // データの復元前に確認
+                    const confirmMessage = `現在のデータ（${entries.length}件）を削除して、バックアップデータ（${backupData.entries.length}件）を復元しますか？\n\n※この操作は元に戻せません。`;
+                    
+                    if (!confirm(confirmMessage)) {
+                        return;
+                    }
+
+                    // データを復元
+                    entries = backupData.entries.map(entry => ({
+                        id: entry.id || Date.now() + Math.random(),
+                        date: entry.date || '',
+                        firstTime: entry.firstTime || '',
+                        secondTime: entry.secondTime || '',
+                        notes: entry.notes || ''
+                    }));
+
+                    // データを保存して画面を更新
+                    saveData();
+                    renderEntries();
+                    
+                    alert(`データの復元が完了しました！\n復元されたエントリ数: ${entries.length}件`);
+                    
+                } catch (error) {
+                    console.error('Restore error:', error);
+                    alert('バックアップファイルの読み込みに失敗しました。ファイルが破損している可能性があります。');
+                }
+            };
+
+            reader.readAsText(file);
+            
+            // ファイル選択をリセット
+            event.target.value = '';
+        }
+
+        // アプリ初期化
+        function init() {
+            loadData();
+            renderEntries();
+        }
+
+        // ページ読み込み完了時に初期化
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
