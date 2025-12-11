@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>丸付き数字ジェネレーター</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='48' fill='%23667eea'/%3E%3Ctext x='50' y='50' font-family='Arial, sans-serif' font-size='55' font-weight='bold' fill='white' text-anchor='middle' dominant-baseline='central'%3E1%3C/text%3E%3C/svg%3E">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+            background: #d4c5b0;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+        }
+
+        .controls {
+            display: grid;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        label {
+            font-weight: 600;
+            color: #444;
+            font-size: 14px;
+        }
+
+        input[type="text"],
+        input[type="number"],
+        input[type="color"],
+        select {
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus,
+        input[type="number"]:focus,
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        select {
+            cursor: pointer;
+            background-color: white;
+        }
+
+        input[type="color"] {
+            height: 50px;
+            cursor: pointer;
+        }
+
+        .size-toggle-group {
+            display: flex;
+            gap: 8px;
+        }
+
+        .size-toggle-btn {
+            flex: 1;
+            padding: 10px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            background: white;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: #666;
+        }
+
+        .size-toggle-btn:hover {
+            border-color: #667eea;
+            background: rgba(102, 126, 234, 0.05);
+        }
+
+        .size-toggle-btn.active {
+            border-color: #667eea;
+            background: #667eea;
+            color: white;
+        }
+
+        .color-preset-group {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .color-preset-btn {
+            width: 50px;
+            height: 50px;
+            border: 3px solid #e0e0e0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .color-preset-btn:hover {
+            transform: scale(1.1);
+            border-color: #999;
+        }
+
+        .color-preset-btn.active {
+            border-color: #333;
+            border-width: 4px;
+            box-shadow: 0 0 0 2px white, 0 0 0 4px #333;
+        }
+
+        .color-preset-btn.active::after {
+            content: '✓';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 0 0 3px rgba(0,0,0,0.5);
+        }
+
+        .color-custom-btn {
+            width: 50px;
+            height: 50px;
+            border: 3px solid #e0e0e0;
+            border-radius: 8px;
+            cursor: pointer;
+            position: relative;
+            background: linear-gradient(135deg, 
+                #ff0000 0%, #ff7f00 16.67%, #ffff00 33.33%, 
+                #00ff00 50%, #0000ff 66.67%, #4b0082 83.33%, #9400d3 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .color-custom-btn::before {
+            content: '+';
+            position: absolute;
+            font-size: 30px;
+            font-weight: bold;
+            color: white;
+            text-shadow: 0 0 3px rgba(0,0,0,0.8);
+        }
+
+        .color-custom-btn input[type="color"] {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+            border: none;
+            padding: 0;
+        }
+
+        .color-toggle-group {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 15px;
+            align-items: end;
+        }
+
+        .toggle-container {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .toggle-slider {
+            background-color: #667eea;
+        }
+
+        input:checked + .toggle-slider:before {
+            transform: translateX(26px);
+        }
+
+        .preview-area {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            display: grid;
+            grid-template-columns: repeat(10, 1fr);
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            min-height: 80px;
+            margin-bottom: 20px;
+            border: 2px dashed #ddd;
+            transition: opacity 0.2s ease;
+            max-width: 100%;
+            overflow: hidden;
+        }
+
+        .preview-area.loading {
+            opacity: 0.5;
+        }
+
+        .svg-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 5px;
+            width: 100%;
+            height: 100%;
+        }
+
+        .svg-item img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #4caf50;
+            color: white;
+            padding: 16px 24px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            opacity: 0;
+            transform: translateY(-20px);
+            transition: all 0.3s;
+            pointer-events: none;
+            z-index: 1000;
+        }
+
+        .notification.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="controls">
+            <div class="control-group">
+                <label for="numberInput">数字またはテキスト（1, i, I, a, A その他）</label>
+                <input type="text" id="numberInput" value="1" maxlength="10">
+            </div>
+
+            <div class="control-group">
+                <label for="fontSelect">フォント</label>
+                <select id="fontSelect">
+                    <option value="'Rounded Mgen+', 'M+ Rounded 1c', sans-serif" selected>Rounded Mgen+</option>
+                    <option value="Arial, sans-serif">Arial</option>
+                    <option value="Helvetica, sans-serif">Helvetica</option>
+                    <option value="'Times New Roman', serif">Times New Roman</option>
+                    <option value="'Courier New', monospace">Courier New</option>
+                    <option value="Georgia, serif">Georgia</option>
+                    <option value="Verdana, sans-serif">Verdana</option>
+                    <option value="Impact, sans-serif">Impact</option>
+                    <option value="'Trebuchet MS', sans-serif">Trebuchet MS</option>
+                    <option value="'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif">ヒラギノ角ゴ</option>
+                    <option value="'Yu Gothic', YuGothic, sans-serif">游ゴシック</option>
+                    <option value="Meiryo, sans-serif">メイリオ</option>
+                    <optgroup label="手書き風">
+                        <option value="'Comic Sans MS', cursive">Comic Sans MS</option>
+                        <option value="'Bradley Hand', cursive">Bradley Hand</option>
+                        <option value="'Brush Script MT', cursive">Brush Script MT</option>
+                        <option value="Chalkboard, fantasy">Chalkboard</option>
+                        <option value="'Marker Felt', fantasy">Marker Felt</option>
+                        <option value="'Yu Kyokasho', '游教科書体', serif">游教科書体</option>
+                    </optgroup>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label>色</label>
+                <div class="color-preset-group">
+                    <button type="button" class="color-preset-btn active" data-color="#667eea" style="background-color: #667eea;"></button>
+                    <button type="button" class="color-preset-btn" data-color="#e74c3c" style="background-color: #e74c3c;"></button>
+                    <button type="button" class="color-preset-btn" data-color="#2ecc71" style="background-color: #2ecc71;"></button>
+                    <button type="button" class="color-preset-btn" data-color="#f39c12" style="background-color: #f39c12;"></button>
+                    <button type="button" class="color-preset-btn" data-color="#9b59b6" style="background-color: #9b59b6;"></button>
+                    <button type="button" class="color-preset-btn" data-color="#e91e63" style="background-color: #e91e63;"></button>
+                    <button type="button" class="color-preset-btn" data-color="#00bcd4" style="background-color: #00bcd4;"></button>
+                    <button type="button" class="color-preset-btn" data-color="#607d8b" style="background-color: #607d8b;"></button>
+                    <div class="color-custom-btn">
+                        <input type="color" id="customColor" value="#667eea">
+                    </div>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label for="invertToggle">色を反転</label>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="invertToggle">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+
+            <div class="control-group">
+                <label>サイズ</label>
+                <div class="size-toggle-group">
+                    <button type="button" class="size-toggle-btn active" data-size="20">Small</button>
+                    <button type="button" class="size-toggle-btn" data-size="25">Middle</button>
+                    <button type="button" class="size-toggle-btn" data-size="30">Large</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="preview-area" id="previewArea">
+            <!-- SVG will be inserted here -->
+        </div>
+
+        <p style="text-align: center; color: #666; font-size: 14px; margin-top: 10px;">
+            💡 画像をダブルクリックでクリップボードにコピー
+        </p>
+    </div>
+
+    <div class="notification" id="notification"></div>
+
+    <script>
+        function toRoman(num, isUpper) {
+            const romanNumerals = [
+                [10, 'x'], [9, 'ix'], [5, 'v'], [4, 'iv'], [1, 'i']
+            ];
+            let result = '';
+            for (const [value, numeral] of romanNumerals) {
+                while (num >= value) {
+                    result += numeral;
+                    num -= value;
+                }
+            }
+            return isUpper ? result.toUpperCase() : result;
+        }
+
+        function parseInput(input) {
+            // 「1」→ 1から20まで
+            if (input === '1') {
+                const numbers = [];
+                for (let i = 1; i <= 20; i++) {
+                    numbers.push(i.toString());
+                }
+                return numbers;
+            }
+            
+            // 「i」→ i から xx まで（小文字ローマ数字）
+            if (input === 'i') {
+                const romans = [];
+                for (let i = 1; i <= 20; i++) {
+                    romans.push(toRoman(i, false));
+                }
+                return romans;
+            }
+            
+            // 「I」→ I から XX まで（大文字ローマ数字）
+            if (input === 'I') {
+                const romans = [];
+                for (let i = 1; i <= 20; i++) {
+                    romans.push(toRoman(i, true));
+                }
+                return romans;
+            }
+            
+            // 「a」→ a から z まで
+            if (input === 'a') {
+                const letters = [];
+                for (let i = 97; i <= 122; i++) { // a-z
+                    letters.push(String.fromCharCode(i));
+                }
+                return letters;
+            }
+            
+            // 「A」→ A から Z まで
+            if (input === 'A') {
+                const letters = [];
+                for (let i = 65; i <= 90; i++) { // A-Z
+                    letters.push(String.fromCharCode(i));
+                }
+                return letters;
+            }
+            
+            // その他の単一の値
+            return [input];
+        }
+
+        function createSVG(text, bgColor, textColor, size, fontFamily, isInverted) {
+            const center = size / 2;
+            const radius = (size / 2) - 2;
+            
+            // フォントサイズを動的に調整（テキストの長さに応じて）
+            const textLength = text.length;
+            let fontSize = size * 0.5;
+            if (textLength === 2) fontSize = size * 0.4;
+            if (textLength >= 3) fontSize = size * 0.35;
+            
+            if (isInverted) {
+                // 反転時：白い背景に指定色の枠線と文字
+                return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+                    <circle cx="${center}" cy="${center}" r="${radius}" fill="#ffffff" stroke="${bgColor}" stroke-width="2"/>
+                    <text x="${center}" y="${center}" font-family="${fontFamily}" font-size="${fontSize}" font-weight="bold" fill="${bgColor}" text-anchor="middle" dominant-baseline="central">${text}</text>
+                </svg>`;
+            } else {
+                // 通常時：指定色の背景に白文字（透明な枠線を追加してサイズを統一）
+                return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+                    <circle cx="${center}" cy="${center}" r="${radius}" fill="${bgColor}" stroke="transparent" stroke-width="2"/>
+                    <text x="${center}" y="${center}" font-family="${fontFamily}" font-size="${fontSize}" font-weight="bold" fill="#ffffff" text-anchor="middle" dominant-baseline="central">${text}</text>
+                </svg>`;
+            }
+        }
+
+        let isGenerating = false;
+        let generateTimeout = null;
+
+        function generateSVG() {
+            // 連続した呼び出しを防ぐため、少し遅延させる
+            clearTimeout(generateTimeout);
+            generateTimeout = setTimeout(() => {
+                actuallyGenerateSVG();
+            }, 50);
+        }
+
+        function actuallyGenerateSVG() {
+            if (isGenerating) return;
+            isGenerating = true;
+
+            const input = document.getElementById('numberInput').value || '1';
+            const activeColorBtn = document.querySelector('.color-preset-btn.active');
+            const customColor = document.getElementById('customColor').value;
+            const bgColor = activeColorBtn ? activeColorBtn.dataset.color : customColor;
+            const activeSizeBtn = document.querySelector('.size-toggle-btn.active');
+            const size = parseInt(activeSizeBtn ? activeSizeBtn.dataset.size : 20);
+            const fontFamily = document.getElementById('fontSelect').value;
+            const isInverted = document.getElementById('invertToggle').checked;
+            
+            const values = parseInput(input);
+            const previewArea = document.getElementById('previewArea');
+            
+            // 新しい要素を格納する一時的なコンテナ
+            const tempContainer = document.createDocumentFragment();
+            let loadedCount = 0;
+            
+            values.forEach(text => {
+                const svg = createSVG(text, bgColor, '#ffffff', size, fontFamily, isInverted);
+                
+                // SVGをPNG画像に変換して表示（右クリックでコピー可能にするため）
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                const scale = 2; // 高解像度
+                canvas.width = size * scale;
+                canvas.height = size * scale;
+                
+                const img = new Image();
+                const svgBlob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
+                const url = URL.createObjectURL(svgBlob);
+                
+                img.onload = function() {
+                    ctx.scale(scale, scale);
+                    ctx.drawImage(img, 0, 0);
+                    URL.revokeObjectURL(url);
+                    
+                    // PNGとしてimg要素を作成
+                    const pngImg = document.createElement('img');
+                    pngImg.src = canvas.toDataURL('image/png');
+                    pngImg.style.display = 'block';
+                    pngImg.style.cursor = 'pointer';
+                    pngImg.alt = `Circle number ${text}`;
+                    pngImg.title = 'ダブルクリックでコピー';
+                    
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = 'svg-item';
+                    itemDiv.appendChild(pngImg);
+                    
+                    // ダブルクリックでクリップボードにコピー
+                    pngImg.addEventListener('dblclick', async function() {
+                        const tempCanvas = document.createElement('canvas');
+                        const tempCtx = tempCanvas.getContext('2d');
+                        tempCanvas.width = this.naturalWidth;
+                        tempCanvas.height = this.naturalHeight;
+                        tempCtx.drawImage(this, 0, 0);
+                        
+                        tempCanvas.toBlob(async function(blob) {
+                            try {
+                                await navigator.clipboard.write([
+                                    new ClipboardItem({ 'image/png': blob })
+                                ]);
+                                showNotification('クリップボードにコピーしました！');
+                            } catch (err) {
+                                console.error('クリップボードへのコピーに失敗しました:', err);
+                                showNotification('コピーに失敗しました。', true);
+                            }
+                        });
+                    });
+                    
+                    tempContainer.appendChild(itemDiv);
+                    
+                    loadedCount++;
+                    // 全ての画像が読み込まれたら一度に表示
+                    if (loadedCount === values.length) {
+                        previewArea.innerHTML = '';
+                        previewArea.appendChild(tempContainer);
+                        isGenerating = false;
+                    }
+                };
+                
+                img.src = url;
+            });
+        }
+
+        function showNotification(message, isError = false) {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.style.background = isError ? '#f44336' : '#4caf50';
+            notification.classList.add('show');
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+
+        // イベントリスナー
+        document.getElementById('numberInput').addEventListener('input', generateSVG);
+        document.getElementById('fontSelect').addEventListener('change', generateSVG);
+        document.getElementById('invertToggle').addEventListener('change', generateSVG);
+        
+        // 色プリセットボタンのイベントリスナー
+        document.querySelectorAll('.color-preset-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                // すべてのボタンからactiveクラスを削除
+                document.querySelectorAll('.color-preset-btn').forEach(b => b.classList.remove('active'));
+                // クリックされたボタンにactiveクラスを追加
+                this.classList.add('active');
+                // 再生成
+                generateSVG();
+            });
+        });
+
+        // カスタムカラーピッカーのイベントリスナー
+        document.getElementById('customColor').addEventListener('input', function() {
+            // プリセットボタンの選択を解除
+            document.querySelectorAll('.color-preset-btn').forEach(b => b.classList.remove('active'));
+            // 再生成
+            generateSVG();
+        });
+        
+        // サイズボタンのイベントリスナー
+        document.querySelectorAll('.size-toggle-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                // すべてのボタンからactiveクラスを削除
+                document.querySelectorAll('.size-toggle-btn').forEach(b => b.classList.remove('active'));
+                // クリックされたボタンにactiveクラスを追加
+                this.classList.add('active');
+                // 再生成
+                generateSVG();
+            });
+        });
+
+        // 初期表示
+        generateSVG();
+    </script>
+</body>
+</html>
