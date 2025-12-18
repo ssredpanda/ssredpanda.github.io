@@ -229,10 +229,40 @@
       font-weight: 600;
     }
 
+    #revealBox.good {
+      color: var(--accent-2);
+    }
+
+    #revealBox.warn {
+      color: var(--accent);
+    }
+
     .overlay {
       background: rgba(250, 245, 236, 0.7);
       border-radius: 12px;
       padding: 12px;
+      font-weight: 700;
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 28px;
+      transform: translate(-50%, 10px);
+      background: #222018;
+      color: #fff8ee;
+      padding: 10px 16px;
+      border-radius: 999px;
+      font-size: 13px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      box-shadow: var(--shadow);
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translate(-50%, 0);
     }
 
     @keyframes fadeIn {
@@ -314,6 +344,8 @@
     </section>
   </main>
 
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
   <script>
     const storeKey = "dictation_sentences_v1";
     const sentenceEl = document.getElementById("sentence");
@@ -327,6 +359,7 @@
     const learnedBtn = document.getElementById("learnedBtn");
     const orderBtn = document.getElementById("orderBtn");
     const revealBox = document.getElementById("revealBox");
+    const toast = document.getElementById("toast");
 
     const views = document.querySelectorAll(".view");
     const tabBtns = document.querySelectorAll(".tab-btn");
@@ -435,6 +468,7 @@
 
     function resetPracticeUI() {
       revealBox.style.display = "none";
+      revealBox.className = "overlay";
       answerEl.value = "";
       checkBtn.textContent = "Check";
       checkBtn.dataset.mode = "check";
@@ -477,6 +511,63 @@
       speakOnce();
     }
 
+    function speakSentenceOnce(rate = 1) {
+      const item = getSelectedSentence();
+      if (!item) return;
+      if (synth.speaking) {
+        synth.cancel();
+      }
+      utterance = new SpeechSynthesisUtterance(item.sentence);
+      utterance.rate = rate;
+      utterance.lang = "en-US";
+      synth.speak(utterance);
+    }
+
+    let toastTimer = null;
+
+    function showToast(message) {
+      if (!toast) return;
+      toast.textContent = message;
+      toast.classList.add("show");
+      if (toastTimer) {
+        clearTimeout(toastTimer);
+      }
+      toastTimer = setTimeout(() => {
+        toast.classList.remove("show");
+      }, 1600);
+    }
+
+    function copyRevealToClipboard() {
+      const text = revealBox.textContent.trim();
+      if (!text) return false;
+      const done = () => showToast("Copied to clipboard");
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(done).catch(() => {
+          fallbackCopy(text);
+        });
+        return true;
+      }
+      fallbackCopy(text);
+      return true;
+    }
+
+    function fallbackCopy(text) {
+      const helper = document.createElement("textarea");
+      helper.value = text;
+      helper.setAttribute("readonly", "");
+      helper.style.position = "absolute";
+      helper.style.left = "-9999px";
+      document.body.appendChild(helper);
+      helper.select();
+      try {
+        document.execCommand("copy");
+        showToast("Copied to clipboard");
+      } catch (err) {
+        showToast("Copy failed");
+      }
+      document.body.removeChild(helper);
+    }
+
     function checkAnswer() {
       const item = getSelectedSentence();
       if (!item) return;
@@ -493,11 +584,15 @@
         ? 0
         : Math.round((matches.length / targetTokens.length) * 100);
 
+      const isCorrect = normalizeText(answerEl.value) === normalizeText(item.sentence);
+      revealBox.className = isCorrect ? "overlay good" : "overlay warn";
+
       checkBtn.textContent = "Next";
       checkBtn.dataset.mode = "next";
       learnedBtn.style.display = "inline-flex";
       revealBox.style.display = "block";
       revealBox.textContent = item.sentence;
+      speakSentenceOnce(1);
     }
 
     function renderAll() {
@@ -530,11 +625,12 @@
       renderSentenceList();
     });
 
-    playBtn.addEventListener("click", () => speakSentence(1));
+    playBtn.addEventListener("click", () => { speakSentence(1); setTimeout(() => checkBtn.focus(), 0); });
     checkBtn.addEventListener("click", () => {
       if (checkBtn.dataset.mode === "next") {
         pickRandomSentence();
-        setTimeout(() => playBtn.focus(), 0);
+        setTimeout(() => checkBtn.focus(), 0);
+        speakSentence(1);
         return;
       }
       checkAnswer();
@@ -547,6 +643,8 @@
       }
       saveSentences();
       renderAll();
+      speakSentence(1);
+      setTimeout(() => checkBtn.focus(), 0);
     });
 
     tabBtns.forEach((btn) => {
@@ -568,6 +666,11 @@
       if (combo && key === "s") {
         event.preventDefault();
         speakSentence(0.7);
+      }
+      if (combo && key === "c") {
+        if (copyRevealToClipboard()) {
+          event.preventDefault();
+        }
       }
     });
 
