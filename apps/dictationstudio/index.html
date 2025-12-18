@@ -1,0 +1,577 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dictation Studio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #f6f0e4;
+      --panel: #fff8ee;
+      --ink: #222018;
+      --muted: #6f6a5e;
+      --accent: #c45a2e;
+      --accent-2: #1f6f5b;
+      --shadow: 0 12px 30px rgba(35, 30, 20, 0.12);
+      --radius: 18px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "M PLUS Rounded 1c", "Trebuchet MS", sans-serif;
+      color: var(--ink);
+      background: radial-gradient(circle at top, #fdf7ef 0%, #f0e2cc 55%, #ead4b6 100%);
+      min-height: 100vh;
+    }
+
+    header {
+      padding: 32px 6vw 16px;
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 24px;
+      flex-wrap: wrap;
+    }
+
+    header h1 {
+      margin: 0;
+      font-family: "M PLUS Rounded 1c", "Trebuchet MS", sans-serif;
+      font-size: clamp(28px, 4vw, 40px);
+      letter-spacing: 0.02em;
+    }
+
+    header p {
+      margin: 6px 0 0;
+      color: var(--muted);
+      max-width: 520px;
+    }
+
+    main {
+      padding: 0 6vw 40px;
+      display: grid;
+      gap: 28px;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .tab-btn {
+      border: 2px solid transparent;
+      background: var(--panel);
+      color: var(--ink);
+      padding: 10px 18px;
+      border-radius: 999px;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: var(--shadow);
+      transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+
+    .tab-btn.active {
+      border-color: var(--accent);
+      transform: translateY(-2px);
+    }
+
+    .view {
+      display: none;
+      background: var(--panel);
+      padding: 24px;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      animation: fadeIn 0.5s ease;
+    }
+
+    .view.active {
+      display: block;
+    }
+
+    .grid {
+      display: grid;
+      gap: 20px;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    }
+
+    .practice-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .register-grid {
+      grid-template-columns: 1fr;
+    }
+
+    label {
+      font-weight: 600;
+      display: block;
+      margin-bottom: 8px;
+    }
+
+    input[type="text"],
+    textarea,
+    select {
+      width: 100%;
+      border-radius: 12px;
+      border: 1px solid #d9cbb0;
+      padding: 12px;
+      font-size: 15px;
+      font-family: inherit;
+      background: #fff;
+    }
+
+    textarea {
+      min-height: 120px;
+      resize: vertical;
+    }
+
+    .btn {
+      padding: 12px 18px;
+      border: none;
+      border-radius: 12px;
+      background: var(--accent);
+      color: white;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s ease, background 0.2s ease;
+    }
+
+    .btn.secondary {
+      background: var(--accent-2);
+    }
+
+    .btn.ghost {
+      background: transparent;
+      color: var(--accent);
+      border: 1px solid var(--accent);
+    }
+
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .panel {
+      border-radius: 14px;
+      padding: 16px;
+      background: #fffdfa;
+      border: 1px solid #e1d4b9;
+    }
+
+    .list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .list-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px;
+      border-radius: 12px;
+      border: 1px solid #eadbc3;
+      background: #fff;
+    }
+
+    .list-item small {
+      color: var(--muted);
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: 999px;
+      padding: 6px 12px;
+      background: #f2e5cf;
+      font-size: 12px;
+      color: #6b5a3f;
+      font-weight: 600;
+    }
+
+    .meter {
+      height: 8px;
+      border-radius: 999px;
+      background: #eadbc3;
+      overflow: hidden;
+    }
+
+    .meter span {
+      display: block;
+      height: 100%;
+      background: var(--accent-2);
+      width: 0;
+      transition: width 0.3s ease;
+    }
+
+    .result {
+      display: grid;
+      gap: 8px;
+      font-size: 14px;
+    }
+
+    .result .good {
+      color: var(--accent-2);
+      font-weight: 600;
+    }
+
+    .result .warn {
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .overlay {
+      background: rgba(250, 245, 236, 0.7);
+      border-radius: 12px;
+      padding: 12px;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 700px) {
+      header {
+        padding: 24px 6vw 8px;
+      }
+
+      .view {
+        padding: 18px;
+      }
+
+      .btn {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Dictation Studio</h1>
+    </div>
+    <div class="tabs">
+      <button class="tab-btn" data-view="register">Register</button>
+      <button class="tab-btn active" data-view="practice">Dictation</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="register" class="view">
+      <div class="grid register-grid">
+        <div class="panel">
+          <h2>Add Sentences</h2>
+          <label for="sentence">Sentence</label>
+          <textarea id="sentence" placeholder="Enter an English sentence"></textarea>
+
+          <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));">
+            <button class="btn" id="saveBtn">Save</button>
+            <button class="btn ghost" id="clearBtn">Clear</button>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h3>Saved Sentences</h3>
+          <div style="margin-bottom: 10px;">
+            <button class="btn ghost" id="orderBtn">Newest First</button>
+          </div>
+          <div class="list" id="sentenceList"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="practice" class="view active">
+      <div class="grid practice-grid">
+        <div class="panel">
+          <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));">
+            <button class="btn secondary" id="playBtn">Play</button>
+          </div>
+
+          <textarea id="answer" placeholder="Type here" style="margin-top: 10px;"></textarea>
+
+          <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));">
+            <button class="btn" id="checkBtn">Check</button>
+            <button class="btn ghost" id="learnedBtn" style="display:none;">Learned</button>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h3>Results</h3>
+          <div id="revealBox" class="overlay" style="display:none; margin: 8px 0 12px;"></div>
+          <div class="result" id="resultBox"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const storeKey = "dictation_sentences_v1";
+    const sentenceEl = document.getElementById("sentence");
+    const saveBtn = document.getElementById("saveBtn");
+    const clearBtn = document.getElementById("clearBtn");
+    const sentenceList = document.getElementById("sentenceList");
+
+    const playBtn = document.getElementById("playBtn");
+    const answerEl = document.getElementById("answer");
+    const checkBtn = document.getElementById("checkBtn");
+    const learnedBtn = document.getElementById("learnedBtn");
+    const orderBtn = document.getElementById("orderBtn");
+    const revealBox = document.getElementById("revealBox");
+
+    const views = document.querySelectorAll(".view");
+    const tabBtns = document.querySelectorAll(".tab-btn");
+
+    const synth = window.speechSynthesis;
+    let utterance = null;
+    let sentences = [];
+    let currentIndex = -1;
+    let remainingIndices = [];
+    let lastSentencesCount = 0;
+    let sortNewestFirst = true;
+
+    function loadSentences() {
+      const raw = localStorage.getItem(storeKey);
+      sentences = raw ? JSON.parse(raw) : [];
+    }
+
+    function saveSentences() {
+      localStorage.setItem(storeKey, JSON.stringify(sentences));
+    }
+
+    function rebuildQueue() {
+      remainingIndices = Array.from({ length: sentences.length }, (_, i) => i);
+      if (sentences.length > 1 && currentIndex >= 0) {
+        remainingIndices = remainingIndices.filter((i) => i !== currentIndex);
+      }
+      for (let i = remainingIndices.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [remainingIndices[i], remainingIndices[j]] = [remainingIndices[j], remainingIndices[i]];
+      }
+    }
+
+    function normalizeText(text) {
+      return text
+        .toLowerCase()
+        .replace(/[^a-z0-9\s']/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+    }
+
+    function tokenize(text) {
+      if (!text) return [];
+      return normalizeText(text).split(" ").filter(Boolean);
+    }
+
+    function renderSentenceList() {
+      sentenceList.innerHTML = "";
+      if (sentences.length === 0) {
+        sentenceList.innerHTML = "<p>No sentences yet.</p>";
+        return;
+      }
+
+      const indexed = sentences.map((item, index) => ({ item, index }));
+      if (!sortNewestFirst) {
+        indexed.reverse();
+      }
+
+      indexed.forEach(({ item, index }) => {
+        const row = document.createElement("div");
+        row.className = "list-item";
+        row.innerHTML = `
+          <div>
+            <small>${item.sentence.slice(0, 48)}${item.sentence.length > 48 ? "…" : ""}</small>
+          </div>
+          <div>
+            <button class="btn ghost" data-index="${index}">Delete</button>
+          </div>
+        `;
+        sentenceList.appendChild(row);
+      });
+
+      sentenceList.querySelectorAll("button[data-index]").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          const idx = Number(e.currentTarget.dataset.index);
+          sentences.splice(idx, 1);
+          saveSentences();
+          renderAll();
+        });
+      });
+    }
+
+    function renderPracticeSelect() {
+      if (sentences.length === 0) {
+        playBtn.disabled = true;
+        checkBtn.disabled = true;
+        learnedBtn.disabled = true;
+        resetPracticeUI();
+        return;
+      }
+
+      if (sentences.length !== lastSentencesCount) {
+        rebuildQueue();
+        lastSentencesCount = sentences.length;
+      }
+      playBtn.disabled = false;
+      checkBtn.disabled = false;
+      learnedBtn.disabled = false;
+      pickRandomSentence();
+      playBtn.focus();
+    }
+
+    function getSelectedSentence() {
+      if (sentences.length === 0) return null;
+      return sentences[currentIndex] || null;
+    }
+
+    function resetPracticeUI() {
+      revealBox.style.display = "none";
+      answerEl.value = "";
+      checkBtn.textContent = "Check";
+      checkBtn.dataset.mode = "check";
+      learnedBtn.style.display = "none";
+    }
+
+    function pickRandomSentence() {
+      if (sentences.length === 0) {
+        currentIndex = -1;
+        resetPracticeUI();
+        return;
+      }
+      if (remainingIndices.length === 0) {
+        rebuildQueue();
+      }
+      currentIndex = remainingIndices.shift();
+      resetPracticeUI();
+      playBtn.focus();
+    }
+
+    function speakSentence(rate = 1) {
+      const item = getSelectedSentence();
+      if (!item) return;
+      if (synth.speaking) {
+        synth.cancel();
+      }
+      let count = 0;
+      const speakOnce = () => {
+        utterance = new SpeechSynthesisUtterance(item.sentence);
+        utterance.rate = rate;
+        utterance.lang = "en-US";
+        utterance.onend = () => {
+          count += 1;
+          if (count < 3) {
+            setTimeout(speakOnce, 3000);
+          }
+        };
+        synth.speak(utterance);
+      };
+      speakOnce();
+    }
+
+    function checkAnswer() {
+      const item = getSelectedSentence();
+      if (!item) return;
+      const targetTokens = tokenize(item.sentence);
+      const answerTokens = tokenize(answerEl.value);
+
+      const targetSet = new Set(targetTokens);
+      const answerSet = new Set(answerTokens);
+
+      const matches = targetTokens.filter((w) => answerSet.has(w));
+      const missing = targetTokens.filter((w) => !answerSet.has(w));
+
+      const score = targetTokens.length === 0
+        ? 0
+        : Math.round((matches.length / targetTokens.length) * 100);
+
+      checkBtn.textContent = "Next";
+      checkBtn.dataset.mode = "next";
+      learnedBtn.style.display = "inline-flex";
+      revealBox.style.display = "block";
+      revealBox.textContent = item.sentence;
+    }
+
+    function renderAll() {
+      renderSentenceList();
+      renderPracticeSelect();
+    }
+
+    saveBtn.addEventListener("click", () => {
+      const sentence = sentenceEl.value.trim();
+      if (!sentence) {
+        alert("Please enter a sentence.");
+        return;
+      }
+      const newItem = {
+        sentence
+      };
+      sentences.unshift(newItem);
+      saveSentences();
+      sentenceEl.value = "";
+      renderAll();
+    });
+
+    clearBtn.addEventListener("click", () => {
+      sentenceEl.value = "";
+    });
+
+    orderBtn.addEventListener("click", () => {
+      sortNewestFirst = !sortNewestFirst;
+      orderBtn.textContent = sortNewestFirst ? "Newest First" : "Oldest First";
+      renderSentenceList();
+    });
+
+    playBtn.addEventListener("click", () => speakSentence(1));
+    checkBtn.addEventListener("click", () => {
+      if (checkBtn.dataset.mode === "next") {
+        pickRandomSentence();
+        setTimeout(() => playBtn.focus(), 0);
+        return;
+      }
+      checkAnswer();
+    });
+    learnedBtn.addEventListener("click", () => {
+      if (sentences.length === 0) return;
+      sentences.splice(currentIndex, 1);
+      if (currentIndex >= sentences.length) {
+        currentIndex = 0;
+      }
+      saveSentences();
+      renderAll();
+    });
+
+    tabBtns.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        tabBtns.forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        const view = btn.dataset.view;
+        views.forEach((v) => v.classList.toggle("active", v.id === view));
+      });
+    });
+
+    document.addEventListener("keydown", (event) => {
+      const key = event.key.toLowerCase();
+      const combo = event.ctrlKey || event.metaKey;
+      if (combo && key === "r") {
+        event.preventDefault();
+        speakSentence(1);
+      }
+      if (combo && key === "s") {
+        event.preventDefault();
+        speakSentence(0.7);
+      }
+    });
+
+    loadSentences();
+    renderAll();
+  </script>
+</body>
+</html>
