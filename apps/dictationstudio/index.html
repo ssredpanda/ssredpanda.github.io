@@ -422,7 +422,7 @@
         const row = document.createElement("div");
         row.className = "list-item";
         row.innerHTML = `
-          <div>
+          <div class="sentence-text" data-sentence="${index}" style="cursor: pointer;" title="Double-click to copy">
             <small>${item.sentence.slice(0, 48)}${item.sentence.length > 48 ? "…" : ""}</small>
           </div>
           <div>
@@ -430,6 +430,16 @@
           </div>
         `;
         sentenceList.appendChild(row);
+      });
+
+      sentenceList.querySelectorAll(".sentence-text").forEach((el) => {
+        el.addEventListener("dblclick", (e) => {
+          const idx = Number(e.currentTarget.dataset.sentence);
+          const text = sentences[idx]?.sentence;
+          if (text) {
+            copyToClipboard(text);
+          }
+        });
       });
 
       sentenceList.querySelectorAll("button[data-index]").forEach((btn) => {
@@ -440,6 +450,19 @@
           renderAll();
         });
       });
+    }
+
+    function copyToClipboard(text) {
+      if (!text) return;
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(() => {
+          showToast("Copied to clipboard");
+        }).catch(() => {
+          fallbackCopy(text);
+        });
+      } else {
+        fallbackCopy(text);
+      }
     }
 
     function renderPracticeSelect() {
