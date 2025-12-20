@@ -321,6 +321,9 @@
     <section id="practice" class="view active">
       <div class="grid practice-grid">
         <div class="panel">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <div class="chip" id="progressText"></div>
+          </div>
           <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));">
             <button class="btn secondary" id="playBtn">Play</button>
           </div>
@@ -445,6 +448,7 @@
         checkBtn.disabled = true;
         learnedBtn.disabled = true;
         resetPracticeUI();
+        updateProgress();
         return;
       }
 
@@ -468,6 +472,7 @@
       revealBox.style.display = "none";
       revealBox.className = "overlay";
       answerEl.value = "";
+      answerEl.disabled = false;
       checkBtn.textContent = "Check";
       checkBtn.dataset.mode = "check";
       learnedBtn.style.display = "none";
@@ -480,11 +485,43 @@
         return;
       }
       if (remainingIndices.length === 0) {
-        rebuildQueue();
+        // 一巡完了
+        currentIndex = -1;
+        showCompletedUI();
+        return;
       }
       currentIndex = remainingIndices.shift();
       resetPracticeUI();
+      updateProgress();
       playBtn.focus();
+    }
+
+    function showCompletedUI() {
+      revealBox.style.display = "block";
+      revealBox.className = "overlay good";
+      revealBox.textContent = "🎉 All sentences completed!";
+      answerEl.value = "";
+      answerEl.disabled = true;
+      playBtn.disabled = true;
+      checkBtn.textContent = "Restart";
+      checkBtn.dataset.mode = "restart";
+      learnedBtn.style.display = "none";
+      updateProgress();
+    }
+
+    function updateProgress() {
+      const total = sentences.length;
+      const done = total - remainingIndices.length - (currentIndex >= 0 ? 1 : 0);
+      const progressEl = document.getElementById("progressText");
+      if (progressEl) {
+        if (total === 0) {
+          progressEl.textContent = "";
+        } else if (currentIndex < 0 && remainingIndices.length === 0) {
+          progressEl.textContent = `${total} / ${total} completed`;
+        } else {
+          progressEl.textContent = `${done + 1} / ${total}`;
+        }
+      }
     }
 
     function speakSentence(rate = 1) {
@@ -625,23 +662,52 @@
 
     playBtn.addEventListener("click", () => { speakSentence(1); setTimeout(() => checkBtn.focus(), 0); });
     checkBtn.addEventListener("click", () => {
+      if (checkBtn.dataset.mode === "restart") {
+        rebuildQueue();
+        answerEl.disabled = false;
+        playBtn.disabled = false;
+        pickRandomSentence();
+        setTimeout(() => playBtn.focus(), 0);
+        return;
+      }
       if (checkBtn.dataset.mode === "next") {
         pickRandomSentence();
         setTimeout(() => checkBtn.focus(), 0);
-        speakSentence(1);
+        if (currentIndex >= 0) {
+          speakSentence(1);
+        }
         return;
       }
       checkAnswer();
     });
     learnedBtn.addEventListener("click", () => {
-      if (sentences.length === 0) return;
-      sentences.splice(currentIndex, 1);
-      if (currentIndex >= sentences.length) {
-        currentIndex = 0;
-      }
+      if (sentences.length === 0 || currentIndex < 0) return;
+      const removedIndex = currentIndex;
+      sentences.splice(removedIndex, 1);
       saveSentences();
-      renderAll();
-      speakSentence(1);
+      
+      // remainingIndicesからremovedIndexを除去し、それより大きいインデックスを調整
+      remainingIndices = remainingIndices
+        .filter((i) => i !== removedIndex)
+        .map((i) => (i > removedIndex ? i - 1 : i));
+      
+      lastSentencesCount = sentences.length;
+      renderSentenceList();
+      
+      if (sentences.length === 0) {
+        currentIndex = -1;
+        playBtn.disabled = true;
+        checkBtn.disabled = true;
+        learnedBtn.disabled = true;
+        resetPracticeUI();
+        updateProgress();
+        return;
+      }
+      
+      pickRandomSentence();
+      if (currentIndex >= 0) {
+        speakSentence(1);
+      }
       setTimeout(() => checkBtn.focus(), 0);
     });
 
