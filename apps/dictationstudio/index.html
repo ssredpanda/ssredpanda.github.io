@@ -753,6 +753,7 @@
             <small>${formatPreview(field2)}</small>
           </div>
           <div>
+            <button class="btn ghost" data-play-index="">Play</button>
             <button class="btn ghost" data-edit-index="${index}">Edit</button>
             <button class="btn ghost" data-index="${index}">Delete</button>
           </div>
@@ -778,6 +779,20 @@
           saveSets();
           renderAll();
         });
+
+      sentenceList.querySelectorAll("button[data-play-index]").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          const idx = Number(e.currentTarget.dataset.playIndex);
+          const item = sentences[idx];
+          const text = item ? (item.sentence || "") : "";
+          if (!text) {
+            showToast("No English sentence");
+            return;
+          }
+          speakText(text, 1);
+        });
+      });
+
       });
 
       sentenceList.querySelectorAll("button[data-edit-index]").forEach((btn) => {
