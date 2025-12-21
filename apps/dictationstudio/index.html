@@ -602,6 +602,10 @@
       }
     }
 
+    function getPrimaryText(item) {
+      return item.english || item.japanese || item.sentence || "";
+    }
+
     function normalizeText(text) {
       return text
         .toLowerCase()
@@ -1096,8 +1100,7 @@
     saveBtn.addEventListener("click", () => {
       const jp = sentenceJpEl.value.trim();
       const sentence = sentenceEnEl.value.trim();
-      if (!jp || !sentence) {
-        alert("Please enter both Japanese and English sentences.");
+      if (!jp && !sentence) {
         return;
       }
       const newItem = {
