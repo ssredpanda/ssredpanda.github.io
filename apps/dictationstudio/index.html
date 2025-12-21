@@ -116,6 +116,19 @@
       margin-bottom: 8px;
     }
 
+    .set-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .set-controls select {
+      flex: 1;
+      min-width: 180px;
+    }
+
     input[type="text"],
     textarea,
     select {
@@ -291,8 +304,8 @@
       <h1>Dictation Studio</h1>
     </div>
     <div class="tabs">
-      <button class="tab-btn" data-view="register">Register</button>
       <button class="tab-btn active" data-view="practice">Dictation</button>
+      <button class="tab-btn" data-view="register">Register</button>
     </div>
   </header>
 
@@ -300,7 +313,23 @@
     <section id="register" class="view">
       <div class="grid register-grid">
         <div class="panel">
-          <h2>Add Sentencej</h2>          <textarea id="sentence" placeholder="Enter an English sentence"></textarea>
+          <h2>Sentence Sets</h2>
+          <div class="set-controls">
+            <select id="setSelectRegister" class="set-picker"></select>
+            <button class="btn ghost" id="renameSetBtn">Rename</button>
+          </div>
+          <div class="set-controls">
+            <button class="btn secondary" id="addSetBtn">New Set</button>
+            <button class="btn ghost" id="deleteSetBtn">Delete Set</button>
+            <button class="btn ghost" id="importSetBtn">Import TSV</button>
+            <button class="btn ghost" id="exportSetBtn">Export TSV</button>
+            <input type="file" id="importInput" accept=".tsv,text/tab-separated-values" style="display:none;" />
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2>Add Sentence</h2>
+          <textarea id="sentence" placeholder="Enter an English sentence"></textarea>
 
           <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));">
             <button class="btn" id="saveBtn">Save</button>
@@ -321,8 +350,11 @@
     <section id="practice" class="view active">
       <div class="grid practice-grid">
         <div class="panel">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 12px; flex-wrap: wrap;">
             <div class="chip" id="progressText"></div>
+            <div style="flex: 1; min-width: 200px;">
+              <select id="setSelectPractice" class="set-picker"></select>
+            </div>
           </div>
           <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));">
             <button class="btn secondary" id="playBtn">Play</button>
@@ -348,11 +380,19 @@
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <script>
-    const storeKey = "dictation_sentences_v1";
+    const storeKey = "dictation_sets_v1";
+    const legacyStoreKey = "dictation_sentences_v1";
     const sentenceEl = document.getElementById("sentence");
     const saveBtn = document.getElementById("saveBtn");
     const clearBtn = document.getElementById("clearBtn");
     const sentenceList = document.getElementById("sentenceList");
+    const setSelects = document.querySelectorAll(".set-picker");
+    const addSetBtn = document.getElementById("addSetBtn");
+    const renameSetBtn = document.getElementById("renameSetBtn");
+    const deleteSetBtn = document.getElementById("deleteSetBtn");
+    const importSetBtn = document.getElementById("importSetBtn");
+    const exportSetBtn = document.getElementById("exportSetBtn");
+    const importInput = document.getElementById("importInput");
 
     const playBtn = document.getElementById("playBtn");
     const answerEl = document.getElementById("answer");
@@ -367,19 +407,128 @@
 
     const synth = window.speechSynthesis;
     let utterance = null;
+    let sets = [];
+    let activeSetId = "";
     let sentences = [];
     let currentIndex = -1;
     let remainingIndices = [];
     let lastSentencesCount = 0;
     let sortNewestFirst = true;
-
-    function loadSentences() {
-      const raw = localStorage.getItem(storeKey);
-      sentences = raw ? JSON.parse(raw) : [];
+    
+    function refreshActiveSetState() {
+      updateSentencesReference();
+      currentIndex = -1;
+      remainingIndices = [];
+      lastSentencesCount = sentences.length;
+      rebuildQueue();
+      resetPracticeUI();
+      renderAll();
     }
 
-    function saveSentences() {
-      localStorage.setItem(storeKey, JSON.stringify(sentences));
+    function generateSetId() {
+      if (window.crypto && crypto.randomUUID) {
+        return crypto.randomUUID();
+      }
+      return `set_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+    }
+
+    function getDefaultSetName() {
+      const used = new Set(sets.map((set) => set.name));
+      let counter = sets.length + 1;
+      let name = `Set ${counter}`;
+      while (used.has(name)) {
+        counter += 1;
+        name = `Set ${counter}`;
+      }
+      return name;
+    }
+
+    function createSet(name, initialSentences = []) {
+      return {
+        id: generateSetId(),
+        name: (name || "").trim() || getDefaultSetName(),
+        sentences: [...initialSentences]
+      };
+    }
+
+    function promptForSetName(defaultName) {
+      const result = window.prompt("Enter set name", defaultName);
+      if (result === null) return null;
+      const trimmed = result.trim();
+      return trimmed || defaultName;
+    }
+
+    function getActiveSet() {
+      return sets.find((set) => set.id === activeSetId) || null;
+    }
+
+    function updateSentencesReference() {
+      const active = getActiveSet();
+      sentences = active ? active.sentences : [];
+    }
+
+    function saveSets() {
+      const payload = { sets, activeSetId };
+      localStorage.setItem(storeKey, JSON.stringify(payload));
+    }
+
+    function loadSets() {
+      const raw = localStorage.getItem(storeKey);
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            sets = parsed;
+          } else if (parsed && Array.isArray(parsed.sets)) {
+            sets = parsed.sets;
+            activeSetId = parsed.activeSetId || "";
+          }
+        } catch (err) {
+          sets = [];
+          activeSetId = "";
+        }
+      }
+
+      if (sets.length === 0) {
+        const legacyRaw = localStorage.getItem(legacyStoreKey);
+        if (legacyRaw) {
+          try {
+            const legacySentences = JSON.parse(legacyRaw);
+            if (Array.isArray(legacySentences)) {
+              const migrated = createSet("Set 1", legacySentences);
+              sets = [migrated];
+              activeSetId = migrated.id;
+            }
+          } catch (err) {
+            sets = [];
+            activeSetId = "";
+          }
+        }
+      }
+
+      if (sets.length === 0) {
+        const fallback = createSet("Set 1");
+        sets.push(fallback);
+        activeSetId = fallback.id;
+      }
+
+      if (!activeSetId || !sets.some((set) => set.id === activeSetId)) {
+        activeSetId = sets[0].id;
+      }
+
+      updateSentencesReference();
+      lastSentencesCount = sentences.length;
+      rebuildQueue();
+      saveSets();
+    }
+
+    function setActiveSet(id) {
+      if (!id) return;
+      const exists = sets.some((set) => set.id === id);
+      if (!exists) return;
+      activeSetId = id;
+      refreshActiveSetState();
+      saveSets();
     }
 
     function rebuildQueue() {
@@ -404,6 +553,112 @@
     function tokenize(text) {
       if (!text) return [];
       return normalizeText(text).split(" ").filter(Boolean);
+    }
+
+    function sanitizeTSVField(value) {
+      if (value === null || value === undefined) return "";
+      return String(value).replace(/\r?\n/g, " ").replace(/\t/g, " ").trim();
+    }
+
+    function buildTSVFromSentences(list) {
+      if (!Array.isArray(list) || list.length === 0) return "";
+      return list
+        .map((item) => {
+          const jp = sanitizeTSVField(item.jp || item.ja || "");
+          const en = sanitizeTSVField(item.sentence || "");
+          return `${jp}\t${en}`;
+        })
+        .join("\n");
+    }
+
+    function parseTSVContent(text) {
+      if (!text) return [];
+      const lines = text.split(/\r?\n/);
+      const parsed = [];
+      lines.forEach((rawLine) => {
+        if (!rawLine) return;
+        const line = rawLine.replace(/\r/g, "");
+        const cleaned = line.replace(/^\uFEFF/, "").trim();
+        if (!cleaned || cleaned.startsWith("#")) return;
+        const firstTab = cleaned.indexOf("\t");
+        if (firstTab === -1) return;
+        const jp = cleaned.slice(0, firstTab).trim();
+        const en = cleaned.slice(firstTab + 1).trim();
+        if (!en) return;
+        parsed.push({ jp, sentence: en });
+      });
+      return parsed;
+    }
+
+    function sanitizeFileName(name) {
+      const base = (name || "set").trim() || "set";
+      return base.replace(/[\\/:*?"<>|]/g, "_").slice(0, 60);
+    }
+
+    function exportCurrentSetToTSV() {
+      const active = getActiveSet();
+      if (!active) {
+        alert("No active set selected.");
+        return;
+      }
+      if (!active.sentences || active.sentences.length === 0) {
+        alert("The current set has no sentences to export.");
+        return;
+      }
+      const tsv = buildTSVFromSentences(active.sentences);
+      if (!tsv) {
+        alert("Unable to export empty data.");
+        return;
+      }
+      const filename = `dictation_${sanitizeFileName(active.name || "set")}.tsv`;
+      const blob = new Blob([tsv], { type: "text/tab-separated-values;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(url), 1500);
+    }
+
+    function importTSVContent(text) {
+      const active = getActiveSet();
+      if (!active) {
+        alert("No active set selected.");
+        return;
+      }
+      const parsed = parseTSVContent(text);
+      if (parsed.length === 0) {
+        alert("No valid rows were found in the TSV file.");
+        return;
+      }
+      const confirmed = window.confirm(`Replace all sentences in "${active.name}" with ${parsed.length} imported items?`);
+      if (!confirmed) return;
+      active.sentences = parsed;
+      saveSets();
+      refreshActiveSetState();
+      showToast(`Imported ${parsed.length} sentences`);
+    }
+
+    function renderSetSelect() {
+      if (!setSelects || setSelects.length === 0) return;
+      setSelects.forEach((select) => {
+        select.innerHTML = "";
+        sets.forEach((set) => {
+          const option = document.createElement("option");
+          option.value = set.id;
+          option.textContent = set.name || "Untitled Set";
+          select.appendChild(option);
+        });
+        select.value = activeSetId;
+      });
+      if (renameSetBtn) {
+        renameSetBtn.disabled = sets.length === 0;
+      }
+      if (deleteSetBtn) {
+        deleteSetBtn.disabled = sets.length <= 1;
+      }
     }
 
     function renderSentenceList() {
@@ -446,7 +701,7 @@
         btn.addEventListener("click", (e) => {
           const idx = Number(e.currentTarget.dataset.index);
           sentences.splice(idx, 1);
-          saveSentences();
+          saveSets();
           renderAll();
         });
       });
@@ -536,13 +791,15 @@
       const total = sentences.length;
       const done = total - remainingIndices.length - (currentIndex >= 0 ? 1 : 0);
       const progressEl = document.getElementById("progressText");
+      const active = getActiveSet();
+      const label = active ? `${active.name}` : "Current Set";
       if (progressEl) {
         if (total === 0) {
-          progressEl.textContent = "";
+          progressEl.textContent = `${label}: 0 sentences`;
         } else if (currentIndex < 0 && remainingIndices.length === 0) {
-          progressEl.textContent = `${total} / ${total} completed`;
+          progressEl.textContent = `${label}: ${total} / ${total} completed`;
         } else {
-          progressEl.textContent = `${done + 1} / ${total}`;
+          progressEl.textContent = `${label}: ${done + 1} / ${total}`;
         }
       }
     }
@@ -654,6 +911,7 @@
     }
 
     function renderAll() {
+      renderSetSelect();
       renderSentenceList();
       renderPracticeSelect();
     }
@@ -665,10 +923,11 @@
         return;
       }
       const newItem = {
-        sentence
+        sentence,
+        jp: ""
       };
       sentences.unshift(newItem);
-      saveSentences();
+      saveSets();
       sentenceEl.value = "";
       renderAll();
     });
@@ -682,6 +941,82 @@
       orderBtn.textContent = sortNewestFirst ? "Newest First" : "Oldest First";
       renderSentenceList();
     });
+
+    if (setSelects && setSelects.length > 0) {
+      setSelects.forEach((select) => {
+        select.addEventListener("change", (event) => {
+          setActiveSet(event.target.value);
+        });
+      });
+    }
+
+    if (addSetBtn) {
+      addSetBtn.addEventListener("click", () => {
+        const name = promptForSetName(getDefaultSetName());
+        if (name === null) return;
+        const newSet = createSet(name);
+        sets.push(newSet);
+        setActiveSet(newSet.id);
+      });
+    }
+
+    if (renameSetBtn) {
+      renameSetBtn.addEventListener("click", () => {
+        const active = getActiveSet();
+        if (!active) return;
+        const name = promptForSetName(active.name || getDefaultSetName());
+        if (name === null) return;
+        active.name = name;
+        saveSets();
+        renderSetSelect();
+      });
+    }
+
+    if (deleteSetBtn) {
+      deleteSetBtn.addEventListener("click", () => {
+        if (sets.length <= 1) {
+          alert("At least one set is required.");
+          return;
+        }
+        const active = getActiveSet();
+        if (!active) return;
+        const confirmed = window.confirm(`Delete set "${active.name}"? This cannot be undone.`);
+        if (!confirmed) return;
+        sets = sets.filter((set) => set.id !== active.id);
+        activeSetId = sets[0]?.id || "";
+        saveSets();
+        refreshActiveSetState();
+      });
+    }
+
+    if (importSetBtn && importInput) {
+      importSetBtn.addEventListener("click", () => {
+        importInput.value = "";
+        importInput.click();
+      });
+    }
+
+    if (exportSetBtn) {
+      exportSetBtn.addEventListener("click", () => {
+        exportCurrentSetToTSV();
+      });
+    }
+
+    if (importInput) {
+      importInput.addEventListener("change", (event) => {
+        const file = event.target.files && event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const result = e.target && typeof e.target.result === "string" ? e.target.result : "";
+          importTSVContent(result);
+        };
+        reader.onerror = () => {
+          alert("Failed to read the selected file.");
+        };
+        reader.readAsText(file);
+      });
+    }
 
     playBtn.addEventListener("click", () => { speakSentence(1); setTimeout(() => checkBtn.focus(), 0); });
     checkBtn.addEventListener("click", () => {
@@ -707,7 +1042,7 @@
       if (sentences.length === 0 || currentIndex < 0) return;
       const removedIndex = currentIndex;
       sentences.splice(removedIndex, 1);
-      saveSentences();
+      saveSets();
       
       // remainingIndicesからremovedIndexを除去し、それより大きいインデックスを調整
       remainingIndices = remainingIndices
@@ -761,7 +1096,7 @@
       }
     });
 
-    loadSentences();
+    loadSets();
     renderAll();
   </script>
 </body>
