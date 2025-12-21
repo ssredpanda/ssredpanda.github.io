@@ -305,6 +305,7 @@
     </div>
     <div class="tabs">
       <button class="tab-btn active" data-view="practice">Dictation</button>
+      <button class="tab-btn" data-view="speaking">Speaking</button>
       <button class="tab-btn" data-view="register">Register</button>
     </div>
   </header>
@@ -329,7 +330,8 @@
 
         <div class="panel">
           <h2>Add Sentence</h2>
-          <textarea id="sentence" placeholder="Enter an English sentence"></textarea>
+          <input id="sentenceJp" type="text" placeholder="Enter a Japanese sentence" />
+          <input id="sentenceEn" type="text" placeholder="Enter an English sentence" style="margin-top: 10px; margin-bottom: 8px;" />
 
           <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));">
             <button class="btn" id="saveBtn">Save</button>
@@ -375,6 +377,32 @@
         </div>
       </div>
     </section>
+
+    <section id="speaking" class="view">
+      <div class="grid practice-grid">
+        <div class="panel">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 12px; flex-wrap: wrap;">
+            <div class="chip" id="speakingProgress"></div>
+            <div style="flex: 1; min-width: 200px;">
+              <select id="setSelectSpeaking" class="set-picker"></select>
+            </div>
+          </div>
+
+          <div class="panel" style="margin-bottom: 12px;">
+            <div id="speakingPrompt" style="font-size: 18px; font-weight: 600;"></div>
+          </div>
+
+          <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));">
+            <button class="btn" id="speakingCheckBtn">Check</button>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h3>Answer</h3>
+          <div id="speakingReveal" class="overlay" style="display:none; margin: 8px 0 12px;"></div>
+        </div>
+      </div>
+    </section>
   </main>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -382,7 +410,8 @@
   <script>
     const storeKey = "dictation_sets_v1";
     const legacyStoreKey = "dictation_sentences_v1";
-    const sentenceEl = document.getElementById("sentence");
+    const sentenceJpEl = document.getElementById("sentenceJp");
+    const sentenceEnEl = document.getElementById("sentenceEn");
     const saveBtn = document.getElementById("saveBtn");
     const clearBtn = document.getElementById("clearBtn");
     const sentenceList = document.getElementById("sentenceList");
@@ -401,6 +430,10 @@
     const orderBtn = document.getElementById("orderBtn");
     const revealBox = document.getElementById("revealBox");
     const toast = document.getElementById("toast");
+    const speakingPrompt = document.getElementById("speakingPrompt");
+    const speakingReveal = document.getElementById("speakingReveal");
+    const speakingCheckBtn = document.getElementById("speakingCheckBtn");
+    const speakingProgress = document.getElementById("speakingProgress");
 
     const views = document.querySelectorAll(".view");
     const tabBtns = document.querySelectorAll(".tab-btn");
@@ -414,14 +447,22 @@
     let remainingIndices = [];
     let lastSentencesCount = 0;
     let sortNewestFirst = true;
+    let speakingIndex = -1;
+    let speakingRemainingIndices = [];
+    let lastSpeakingCount = 0;
     
     function refreshActiveSetState() {
       updateSentencesReference();
       currentIndex = -1;
       remainingIndices = [];
       lastSentencesCount = sentences.length;
+      speakingIndex = -1;
+      speakingRemainingIndices = [];
+      lastSpeakingCount = sentences.length;
       rebuildQueue();
+      rebuildSpeakingQueue();
       resetPracticeUI();
+      resetSpeakingUI();
       renderAll();
     }
 
@@ -456,6 +497,12 @@
       if (result === null) return null;
       const trimmed = result.trim();
       return trimmed || defaultName;
+    }
+
+    function promptForSentenceText(label, currentValue) {
+      const result = window.prompt(label, currentValue || "");
+      if (result === null) return null;
+      return result.trim();
     }
 
     function getActiveSet() {
@@ -518,7 +565,9 @@
 
       updateSentencesReference();
       lastSentencesCount = sentences.length;
+      lastSpeakingCount = sentences.length;
       rebuildQueue();
+      rebuildSpeakingQueue();
       saveSets();
     }
 
@@ -539,6 +588,17 @@
       for (let i = remainingIndices.length - 1; i > 0; i -= 1) {
         const j = Math.floor(Math.random() * (i + 1));
         [remainingIndices[i], remainingIndices[j]] = [remainingIndices[j], remainingIndices[i]];
+      }
+    }
+
+    function rebuildSpeakingQueue() {
+      speakingRemainingIndices = Array.from({ length: sentences.length }, (_, i) => i);
+      if (sentences.length > 1 && speakingIndex >= 0) {
+        speakingRemainingIndices = speakingRemainingIndices.filter((i) => i !== speakingIndex);
+      }
+      for (let i = speakingRemainingIndices.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [speakingRemainingIndices[i], speakingRemainingIndices[j]] = [speakingRemainingIndices[j], speakingRemainingIndices[i]];
       }
     }
 
@@ -668,19 +728,28 @@
         return;
       }
 
+      const formatPreview = (text) => {
+        if (!text) return "-";
+        return text.length > 48 ? `${text.slice(0, 48)}…` : text;
+      };
+
       const indexed = sentences.map((item, index) => ({ item, index }));
       if (!sortNewestFirst) {
         indexed.reverse();
       }
 
       indexed.forEach(({ item, index }) => {
+        const field1 = item.jp ? item.jp : item.sentence;
+        const field2 = item.jp ? item.sentence : "";
         const row = document.createElement("div");
         row.className = "list-item";
         row.innerHTML = `
           <div class="sentence-text" data-sentence="${index}" style="cursor: pointer;" title="Double-click to copy">
-            <small>${item.sentence.slice(0, 48)}${item.sentence.length > 48 ? "…" : ""}</small>
+            <small>${formatPreview(field1)}</small><br />
+            <small>${formatPreview(field2)}</small>
           </div>
           <div>
+            <button class="btn ghost" data-edit-index="${index}">Edit</button>
             <button class="btn ghost" data-index="${index}">Delete</button>
           </div>
         `;
@@ -690,7 +759,8 @@
       sentenceList.querySelectorAll(".sentence-text").forEach((el) => {
         el.addEventListener("dblclick", (e) => {
           const idx = Number(e.currentTarget.dataset.sentence);
-          const text = sentences[idx]?.sentence;
+          const item = sentences[idx];
+          const text = item ? (item.jp ? item.jp : item.sentence) : "";
           if (text) {
             copyToClipboard(text);
           }
@@ -701,6 +771,26 @@
         btn.addEventListener("click", (e) => {
           const idx = Number(e.currentTarget.dataset.index);
           sentences.splice(idx, 1);
+          saveSets();
+          renderAll();
+        });
+      });
+
+      sentenceList.querySelectorAll("button[data-edit-index]").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          const idx = Number(e.currentTarget.dataset.editIndex);
+          const item = sentences[idx];
+          if (!item) return;
+          const jp = promptForSentenceText("Edit Japanese (item 1)", item.jp || "");
+          if (jp === null) return;
+          const en = promptForSentenceText("Edit English (item 2)", item.sentence || "");
+          if (en === null) return;
+          if (!jp || !en) {
+            alert("Both Japanese and English are required.");
+            return;
+          }
+          item.jp = jp;
+          item.sentence = en;
           saveSets();
           renderAll();
         });
@@ -741,6 +831,25 @@
       playBtn.focus();
     }
 
+    function renderSpeakingSelect() {
+      if (!speakingCheckBtn) return;
+      if (sentences.length === 0) {
+        speakingCheckBtn.disabled = true;
+        resetSpeakingUI();
+        updateSpeakingProgress();
+        if (speakingPrompt) {
+          speakingPrompt.textContent = "No sentences yet.";
+        }
+        return;
+      }
+      if (sentences.length !== lastSpeakingCount) {
+        rebuildSpeakingQueue();
+        lastSpeakingCount = sentences.length;
+      }
+      speakingCheckBtn.disabled = false;
+      pickSpeakingSentence();
+    }
+
     function getSelectedSentence() {
       if (sentences.length === 0) return null;
       return sentences[currentIndex] || null;
@@ -754,6 +863,15 @@
       checkBtn.textContent = "Check";
       checkBtn.dataset.mode = "check";
       learnedBtn.style.display = "none";
+    }
+
+    function resetSpeakingUI() {
+      if (!speakingReveal || !speakingCheckBtn || !speakingPrompt) return;
+      speakingReveal.style.display = "none";
+      speakingReveal.className = "overlay";
+      speakingCheckBtn.textContent = "Check";
+      speakingCheckBtn.dataset.mode = "check";
+      speakingPrompt.textContent = "";
     }
 
     function pickRandomSentence() {
@@ -774,6 +892,27 @@
       playBtn.focus();
     }
 
+    function pickSpeakingSentence() {
+      if (!speakingPrompt) return;
+      if (sentences.length === 0) {
+        speakingIndex = -1;
+        resetSpeakingUI();
+        updateSpeakingProgress();
+        speakingPrompt.textContent = "No sentences yet.";
+        return;
+      }
+      if (speakingRemainingIndices.length === 0) {
+        speakingIndex = -1;
+        showSpeakingCompletedUI();
+        return;
+      }
+      speakingIndex = speakingRemainingIndices.shift();
+      const item = sentences[speakingIndex];
+      resetSpeakingUI();
+      speakingPrompt.textContent = item?.jp || item?.sentence || "";
+      updateSpeakingProgress();
+    }
+
     function showCompletedUI() {
       revealBox.style.display = "block";
       revealBox.className = "overlay good";
@@ -785,6 +924,17 @@
       checkBtn.dataset.mode = "restart";
       learnedBtn.style.display = "none";
       updateProgress();
+    }
+
+    function showSpeakingCompletedUI() {
+      if (!speakingReveal || !speakingCheckBtn || !speakingPrompt) return;
+      speakingPrompt.textContent = "";
+      speakingReveal.style.display = "block";
+      speakingReveal.className = "overlay good";
+      speakingReveal.textContent = "🎉 All sentences completed!";
+      speakingCheckBtn.textContent = "Restart";
+      speakingCheckBtn.dataset.mode = "restart";
+      updateSpeakingProgress();
     }
 
     function updateProgress() {
@@ -801,6 +951,21 @@
         } else {
           progressEl.textContent = `${label}: ${done + 1} / ${total}`;
         }
+      }
+    }
+
+    function updateSpeakingProgress() {
+      if (!speakingProgress) return;
+      const total = sentences.length;
+      const done = total - speakingRemainingIndices.length - (speakingIndex >= 0 ? 1 : 0);
+      const active = getActiveSet();
+      const label = active ? `${active.name}` : "Current Set";
+      if (total === 0) {
+        speakingProgress.textContent = `${label}: 0 sentences`;
+      } else if (speakingIndex < 0 && speakingRemainingIndices.length === 0) {
+        speakingProgress.textContent = `${label}: ${total} / ${total} completed`;
+      } else {
+        speakingProgress.textContent = `${label}: ${done + 1} / ${total}`;
       }
     }
 
@@ -833,6 +998,17 @@
         synth.cancel();
       }
       utterance = new SpeechSynthesisUtterance(item.sentence);
+      utterance.rate = rate;
+      utterance.lang = "en-US";
+      synth.speak(utterance);
+    }
+
+    function speakText(text, rate = 1) {
+      if (!text) return;
+      if (synth.speaking) {
+        synth.cancel();
+      }
+      utterance = new SpeechSynthesisUtterance(text);
       utterance.rate = rate;
       utterance.lang = "en-US";
       synth.speak(utterance);
@@ -914,26 +1090,30 @@
       renderSetSelect();
       renderSentenceList();
       renderPracticeSelect();
+      renderSpeakingSelect();
     }
 
     saveBtn.addEventListener("click", () => {
-      const sentence = sentenceEl.value.trim();
-      if (!sentence) {
-        alert("Please enter a sentence.");
+      const jp = sentenceJpEl.value.trim();
+      const sentence = sentenceEnEl.value.trim();
+      if (!jp || !sentence) {
+        alert("Please enter both Japanese and English sentences.");
         return;
       }
       const newItem = {
         sentence,
-        jp: ""
+        jp
       };
       sentences.unshift(newItem);
       saveSets();
-      sentenceEl.value = "";
+      sentenceJpEl.value = "";
+      sentenceEnEl.value = "";
       renderAll();
     });
 
     clearBtn.addEventListener("click", () => {
-      sentenceEl.value = "";
+      sentenceJpEl.value = "";
+      sentenceEnEl.value = "";
     });
 
     orderBtn.addEventListener("click", () => {
@@ -1038,6 +1218,27 @@
       }
       checkAnswer();
     });
+    if (speakingCheckBtn) {
+      speakingCheckBtn.addEventListener("click", () => {
+        if (speakingCheckBtn.dataset.mode === "restart") {
+          rebuildSpeakingQueue();
+          pickSpeakingSentence();
+          return;
+        }
+        if (speakingCheckBtn.dataset.mode === "next") {
+          pickSpeakingSentence();
+          return;
+        }
+        const item = sentences[speakingIndex];
+        if (!item || !speakingReveal) return;
+        speakingReveal.style.display = "block";
+        speakingReveal.className = "overlay";
+        speakingReveal.textContent = item.sentence || "";
+        speakingCheckBtn.textContent = "Next";
+        speakingCheckBtn.dataset.mode = "next";
+        speakText(item.sentence || "", 1);
+      });
+    }
     learnedBtn.addEventListener("click", () => {
       if (sentences.length === 0 || currentIndex < 0) return;
       const removedIndex = currentIndex;
@@ -1059,6 +1260,14 @@
         learnedBtn.disabled = true;
         resetPracticeUI();
         updateProgress();
+        if (speakingCheckBtn) {
+          speakingCheckBtn.disabled = true;
+        }
+        resetSpeakingUI();
+        updateSpeakingProgress();
+        if (speakingPrompt) {
+          speakingPrompt.textContent = "No sentences yet.";
+        }
         return;
       }
       
@@ -1067,6 +1276,7 @@
         speakSentence(1);
       }
       setTimeout(() => checkBtn.focus(), 0);
+      renderSpeakingSelect();
     });
 
     tabBtns.forEach((btn) => {
