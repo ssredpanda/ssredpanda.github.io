@@ -780,7 +780,7 @@
         const y = date.getFullYear();
         const m = String(date.getMonth() + 1).padStart(2, "0");
         const d = String(date.getDate()).padStart(2, "0");
-        return `Learned until ${y}-${m}-${d}`;
+        return `${y}-${m}-${d}`;
       };
       const formatArchivedStatus = (item) => {
         if (!item || !item.archivedAt) return "";
@@ -789,7 +789,7 @@
         const y = date.getFullYear();
         const m = String(date.getMonth() + 1).padStart(2, "0");
         const d = String(date.getDate()).padStart(2, "0");
-        return `Archived at ${y}-${m}-${d}`;
+        return `${y}-${m}-${d}`;
       };
 
       const indexed = sentences
@@ -817,19 +817,21 @@
         const field2 = item.jp ? item.sentence : "";
         const learnedStatus = listFilter === "learned" ? formatLearnedStatus(item) : "";
         const archivedStatus = listFilter === "archived" ? formatArchivedStatus(item) : "";
+        const showRestore = listFilter === "learned" || listFilter === "archived";
         const row = document.createElement("div");
         row.className = "list-item";
         row.innerHTML = `
           <div class="sentence-text" data-sentence="${index}" style="cursor: pointer;" title="Double-click to copy">
             <small>${formatPreview(field1)}</small><br />
             <small>${formatPreview(field2)}</small>
-            ${learnedStatus ? `<br /><span class="chip" style="margin-top: 6px;">${learnedStatus}</span>` : ""}
-            ${archivedStatus ? `<br /><span class="chip" style="margin-top: 6px;">${archivedStatus}</span>` : ""}
           </div>
           <div>
+            ${learnedStatus ? `<span class="chip">${learnedStatus}</span>` : ""}
+            ${archivedStatus ? `<span class="chip">${archivedStatus}</span>` : ""}
             <button class="btn ghost" data-play-index="">Play</button>
             <button class="btn ghost" data-edit-index="${index}">Edit</button>
             <button class="btn ghost" data-index="${index}">Delete</button>
+            ${showRestore ? `<button class="btn ghost" data-restore-index="${index}">Restore</button>` : ""}
           </div>
         `;
         sentenceList.appendChild(row);
@@ -888,6 +890,22 @@
           }
           item.jp = jp;
           item.sentence = en;
+          saveSets();
+          renderAll();
+        });
+      });
+
+      sentenceList.querySelectorAll("button[data-restore-index]").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          const idx = Number(e.currentTarget.dataset.restoreIndex);
+          const item = sentences[idx];
+          if (!item) return;
+          if (item.learnedUntil) {
+            delete item.learnedUntil;
+          }
+          if (item.archivedAt) {
+            delete item.archivedAt;
+          }
           saveSets();
           renderAll();
         });
@@ -1389,6 +1407,14 @@
         return;
       }
       checkAnswer();
+      setTimeout(() => checkBtn.focus(), 0);
+    });
+
+    answerEl.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        checkBtn.click();
+      }
     });
     if (speakingCheckBtn) {
       speakingCheckBtn.addEventListener("click", () => {
