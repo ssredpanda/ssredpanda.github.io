@@ -343,6 +343,8 @@
           <h3>Saved Sentences</h3>
           <div style="margin-bottom: 10px;">
             <button class="btn ghost" id="orderBtn">Newest First</button>
+            <button class="btn ghost" id="showActiveBtn">Show Active</button>
+            <button class="btn ghost" id="showLearnedBtn">Show Learned</button>
           </div>
           <div class="list" id="sentenceList"></div>
         </div>
@@ -428,6 +430,8 @@
     const checkBtn = document.getElementById("checkBtn");
     const learnedBtn = document.getElementById("learnedBtn");
     const orderBtn = document.getElementById("orderBtn");
+    const showActiveBtn = document.getElementById("showActiveBtn");
+    const showLearnedBtn = document.getElementById("showLearnedBtn");
     const revealBox = document.getElementById("revealBox");
     const toast = document.getElementById("toast");
     const speakingPrompt = document.getElementById("speakingPrompt");
@@ -450,6 +454,8 @@
     let speakingIndex = -1;
     let speakingRemainingIndices = [];
     let lastSpeakingCount = 0;
+    const learnedCooldownMs = 14 * 24 * 60 * 60 * 1000;
+    let showLearnedOnly = false;
     
     function refreshActiveSetState() {
       updateSentencesReference();
@@ -512,6 +518,19 @@
     function updateSentencesReference() {
       const active = getActiveSet();
       sentences = active ? active.sentences : [];
+    }
+
+    function isSentenceDue(item) {
+      if (!item) return false;
+      if (!item.learnedUntil) return true;
+      return Date.now() >= item.learnedUntil;
+    }
+
+    function getDueIndices() {
+      return sentences
+        .map((item, index) => ({ item, index }))
+        .filter(({ item }) => isSentenceDue(item))
+        .map(({ index }) => index);
     }
 
     function saveSets() {
@@ -581,8 +600,8 @@
     }
 
     function rebuildQueue() {
-      remainingIndices = Array.from({ length: sentences.length }, (_, i) => i);
-      if (sentences.length > 1 && currentIndex >= 0) {
+      remainingIndices = getDueIndices();
+      if (remainingIndices.length > 1 && currentIndex >= 0) {
         remainingIndices = remainingIndices.filter((i) => i !== currentIndex);
       }
       for (let i = remainingIndices.length - 1; i > 0; i -= 1) {
@@ -592,8 +611,8 @@
     }
 
     function rebuildSpeakingQueue() {
-      speakingRemainingIndices = Array.from({ length: sentences.length }, (_, i) => i);
-      if (sentences.length > 1 && speakingIndex >= 0) {
+      speakingRemainingIndices = getDueIndices();
+      if (speakingRemainingIndices.length > 1 && speakingIndex >= 0) {
         speakingRemainingIndices = speakingRemainingIndices.filter((i) => i !== speakingIndex);
       }
       for (let i = speakingRemainingIndices.length - 1; i > 0; i -= 1) {
@@ -727,6 +746,7 @@
 
     function renderSentenceList() {
       sentenceList.innerHTML = "";
+      updateLearnedFilterButtons();
       if (sentences.length === 0) {
         sentenceList.innerHTML = "<p>No sentences yet.</p>";
         return;
@@ -736,21 +756,41 @@
         if (!text) return "-";
         return text.length > 48 ? `${text.slice(0, 48)}…` : text;
       };
+      const formatLearnedStatus = (item) => {
+        if (!item || !item.learnedUntil) return "";
+        const date = new Date(item.learnedUntil);
+        if (Number.isNaN(date.getTime())) return "";
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, "0");
+        const d = String(date.getDate()).padStart(2, "0");
+        return `Learned until ${y}-${m}-${d}`;
+      };
 
-      const indexed = sentences.map((item, index) => ({ item, index }));
+      const indexed = sentences
+        .map((item, index) => ({ item, index }))
+        .filter(({ item }) => (showLearnedOnly ? !!item.learnedUntil : !item.learnedUntil));
       if (!sortNewestFirst) {
         indexed.reverse();
+      }
+
+      if (indexed.length === 0) {
+        sentenceList.innerHTML = showLearnedOnly
+          ? "<p>No learned sentences yet.</p>"
+          : "<p>No active sentences.</p>";
+        return;
       }
 
       indexed.forEach(({ item, index }) => {
         const field1 = item.jp ? item.jp : item.sentence;
         const field2 = item.jp ? item.sentence : "";
+        const learnedStatus = showLearnedOnly ? formatLearnedStatus(item) : "";
         const row = document.createElement("div");
         row.className = "list-item";
         row.innerHTML = `
           <div class="sentence-text" data-sentence="${index}" style="cursor: pointer;" title="Double-click to copy">
             <small>${formatPreview(field1)}</small><br />
             <small>${formatPreview(field2)}</small>
+            ${learnedStatus ? `<br /><span class="chip" style="margin-top: 6px;">${learnedStatus}</span>` : ""}
           </div>
           <div>
             <button class="btn ghost" data-play-index="">Play</button>
@@ -816,6 +856,15 @@
       });
     }
 
+    function updateLearnedFilterButtons() {
+      if (showActiveBtn) {
+        showActiveBtn.disabled = !showLearnedOnly;
+      }
+      if (showLearnedBtn) {
+        showLearnedBtn.disabled = showLearnedOnly;
+      }
+    }
+
     function copyToClipboard(text) {
       if (!text) return;
       if (navigator.clipboard && window.isSecureContext) {
@@ -836,6 +885,13 @@
         learnedBtn.disabled = true;
         resetPracticeUI();
         updateProgress();
+        return;
+      }
+      if (getDueIndices().length === 0) {
+        playBtn.disabled = true;
+        checkBtn.disabled = true;
+        learnedBtn.disabled = true;
+        showCompletedUI(true);
         return;
       }
 
@@ -859,6 +915,11 @@
         if (speakingPrompt) {
           speakingPrompt.textContent = "No sentences yet.";
         }
+        return;
+      }
+      if (getDueIndices().length === 0) {
+        speakingCheckBtn.disabled = true;
+        showSpeakingCompletedUI(true);
         return;
       }
       if (sentences.length !== lastSpeakingCount) {
@@ -932,10 +993,12 @@
       updateSpeakingProgress();
     }
 
-    function showCompletedUI() {
+    function showCompletedUI(isDeferred = false) {
       revealBox.style.display = "block";
       revealBox.className = "overlay good";
-      revealBox.textContent = "🎉 All sentences completed!";
+      revealBox.textContent = isDeferred
+        ? "✅ No sentences due right now. Come back later!"
+        : "🎉 All sentences completed!";
       answerEl.value = "";
       answerEl.disabled = true;
       playBtn.disabled = true;
@@ -945,26 +1008,28 @@
       updateProgress();
     }
 
-    function showSpeakingCompletedUI() {
+    function showSpeakingCompletedUI(isDeferred = false) {
       if (!speakingReveal || !speakingCheckBtn || !speakingPrompt) return;
       speakingPrompt.textContent = "";
       speakingReveal.style.display = "block";
       speakingReveal.className = "overlay good";
-      speakingReveal.textContent = "🎉 All sentences completed!";
+      speakingReveal.textContent = isDeferred
+        ? "✅ No sentences due right now. Come back later!"
+        : "🎉 All sentences completed!";
       speakingCheckBtn.textContent = "Restart";
       speakingCheckBtn.dataset.mode = "restart";
       updateSpeakingProgress();
     }
 
     function updateProgress() {
-      const total = sentences.length;
+      const total = getDueIndices().length;
       const done = total - remainingIndices.length - (currentIndex >= 0 ? 1 : 0);
       const progressEl = document.getElementById("progressText");
       const active = getActiveSet();
       const label = active ? `${active.name}` : "Current Set";
       if (progressEl) {
         if (total === 0) {
-          progressEl.textContent = `${label}: 0 sentences`;
+          progressEl.textContent = `${label}: 0 due`;
         } else if (currentIndex < 0 && remainingIndices.length === 0) {
           progressEl.textContent = `${label}: ${total} / ${total} completed`;
         } else {
@@ -975,12 +1040,12 @@
 
     function updateSpeakingProgress() {
       if (!speakingProgress) return;
-      const total = sentences.length;
+      const total = getDueIndices().length;
       const done = total - speakingRemainingIndices.length - (speakingIndex >= 0 ? 1 : 0);
       const active = getActiveSet();
       const label = active ? `${active.name}` : "Current Set";
       if (total === 0) {
-        speakingProgress.textContent = `${label}: 0 sentences`;
+        speakingProgress.textContent = `${label}: 0 due`;
       } else if (speakingIndex < 0 && speakingRemainingIndices.length === 0) {
         speakingProgress.textContent = `${label}: ${total} / ${total} completed`;
       } else {
@@ -1140,6 +1205,20 @@
       renderSentenceList();
     });
 
+    if (showActiveBtn) {
+      showActiveBtn.addEventListener("click", () => {
+        showLearnedOnly = false;
+        renderSentenceList();
+      });
+    }
+
+    if (showLearnedBtn) {
+      showLearnedBtn.addEventListener("click", () => {
+        showLearnedOnly = true;
+        renderSentenceList();
+      });
+    }
+
     if (setSelects && setSelects.length > 0) {
       setSelects.forEach((select) => {
         select.addEventListener("change", (event) => {
@@ -1259,41 +1338,18 @@
     }
     learnedBtn.addEventListener("click", () => {
       if (sentences.length === 0 || currentIndex < 0) return;
-      const removedIndex = currentIndex;
-      sentences.splice(removedIndex, 1);
+      const learnedIndex = currentIndex;
+      const learnedItem = sentences[learnedIndex];
+      if (learnedItem) {
+        learnedItem.learnedUntil = Date.now() + learnedCooldownMs;
+      }
       saveSets();
-      
-      // remainingIndicesからremovedIndexを除去し、それより大きいインデックスを調整
-      remainingIndices = remainingIndices
-        .filter((i) => i !== removedIndex)
-        .map((i) => (i > removedIndex ? i - 1 : i));
-      
-      lastSentencesCount = sentences.length;
+      remainingIndices = remainingIndices.filter((i) => i !== learnedIndex);
+      currentIndex = -1;
+      rebuildQueue();
+      rebuildSpeakingQueue();
       renderSentenceList();
-      
-      if (sentences.length === 0) {
-        currentIndex = -1;
-        playBtn.disabled = true;
-        checkBtn.disabled = true;
-        learnedBtn.disabled = true;
-        resetPracticeUI();
-        updateProgress();
-        if (speakingCheckBtn) {
-          speakingCheckBtn.disabled = true;
-        }
-        resetSpeakingUI();
-        updateSpeakingProgress();
-        if (speakingPrompt) {
-          speakingPrompt.textContent = "No sentences yet.";
-        }
-        return;
-      }
-      
-      pickRandomSentence();
-      if (currentIndex >= 0) {
-        speakSentence(1);
-      }
-      setTimeout(() => checkBtn.focus(), 0);
+      renderPracticeSelect();
       renderSpeakingSelect();
     });
 
