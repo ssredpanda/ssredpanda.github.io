@@ -343,8 +343,9 @@
           <h3>Saved Sentences</h3>
           <div style="margin-bottom: 10px;">
             <button class="btn ghost" id="orderBtn">Newest First</button>
-            <button class="btn ghost" id="showActiveBtn">Show Active</button>
-            <button class="btn ghost" id="showLearnedBtn">Show Learned</button>
+            <button class="btn ghost" id="showActiveBtn">Active</button>
+            <button class="btn ghost" id="showLearnedBtn">Learned</button>
+            <button class="btn ghost" id="showArchivedBtn">Archived</button>
           </div>
           <div class="list" id="sentenceList"></div>
         </div>
@@ -369,6 +370,7 @@
           <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));">
             <button class="btn" id="checkBtn">Check</button>
             <button class="btn ghost" id="learnedBtn" style="display:none;">Learned</button>
+            <button class="btn ghost" id="archivedBtn" style="display:none;">Archived</button>
           </div>
         </div>
 
@@ -429,9 +431,11 @@
     const answerEl = document.getElementById("answer");
     const checkBtn = document.getElementById("checkBtn");
     const learnedBtn = document.getElementById("learnedBtn");
+    const archivedBtn = document.getElementById("archivedBtn");
     const orderBtn = document.getElementById("orderBtn");
     const showActiveBtn = document.getElementById("showActiveBtn");
     const showLearnedBtn = document.getElementById("showLearnedBtn");
+    const showArchivedBtn = document.getElementById("showArchivedBtn");
     const revealBox = document.getElementById("revealBox");
     const toast = document.getElementById("toast");
     const speakingPrompt = document.getElementById("speakingPrompt");
@@ -454,14 +458,16 @@
     let speakingIndex = -1;
     let speakingRemainingIndices = [];
     let lastSpeakingCount = 0;
+    let lastDueCount = 0;
     const learnedCooldownMs = 14 * 24 * 60 * 60 * 1000;
-    let showLearnedOnly = false;
+    let listFilter = "active";
     
     function refreshActiveSetState() {
       updateSentencesReference();
       currentIndex = -1;
       remainingIndices = [];
       lastSentencesCount = sentences.length;
+      lastDueCount = getDueIndices().length;
       speakingIndex = -1;
       speakingRemainingIndices = [];
       lastSpeakingCount = sentences.length;
@@ -522,6 +528,7 @@
 
     function isSentenceDue(item) {
       if (!item) return false;
+      if (item.archivedAt) return false;
       if (!item.learnedUntil) return true;
       return Date.now() >= item.learnedUntil;
     }
@@ -536,6 +543,15 @@
     function saveSets() {
       const payload = { sets, activeSetId };
       localStorage.setItem(storeKey, JSON.stringify(payload));
+    }
+
+    function isDuplicateEnglish(sentence, skipIndex = -1) {
+      const target = normalizeText(sentence);
+      if (!target) return false;
+      return sentences.some((item, index) => {
+        if (index === skipIndex) return false;
+        return normalizeText(item.sentence || "") === target;
+      });
     }
 
     function loadSets() {
@@ -585,6 +601,7 @@
       updateSentencesReference();
       lastSentencesCount = sentences.length;
       lastSpeakingCount = sentences.length;
+      lastDueCount = getDueIndices().length;
       rebuildQueue();
       rebuildSpeakingQueue();
       saveSets();
@@ -765,25 +782,41 @@
         const d = String(date.getDate()).padStart(2, "0");
         return `Learned until ${y}-${m}-${d}`;
       };
+      const formatArchivedStatus = (item) => {
+        if (!item || !item.archivedAt) return "";
+        const date = new Date(item.archivedAt);
+        if (Number.isNaN(date.getTime())) return "";
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, "0");
+        const d = String(date.getDate()).padStart(2, "0");
+        return `Archived at ${y}-${m}-${d}`;
+      };
 
       const indexed = sentences
         .map((item, index) => ({ item, index }))
-        .filter(({ item }) => (showLearnedOnly ? !!item.learnedUntil : !item.learnedUntil));
+        .filter(({ item }) => {
+          if (listFilter === "learned") return !!item.learnedUntil;
+          if (listFilter === "archived") return !!item.archivedAt;
+          return !item.learnedUntil && !item.archivedAt;
+        });
       if (!sortNewestFirst) {
         indexed.reverse();
       }
 
       if (indexed.length === 0) {
-        sentenceList.innerHTML = showLearnedOnly
+        sentenceList.innerHTML = listFilter === "learned"
           ? "<p>No learned sentences yet.</p>"
-          : "<p>No active sentences.</p>";
+          : listFilter === "archived"
+            ? "<p>No archived sentences yet.</p>"
+            : "<p>No active sentences.</p>";
         return;
       }
 
       indexed.forEach(({ item, index }) => {
         const field1 = item.jp ? item.jp : item.sentence;
         const field2 = item.jp ? item.sentence : "";
-        const learnedStatus = showLearnedOnly ? formatLearnedStatus(item) : "";
+        const learnedStatus = listFilter === "learned" ? formatLearnedStatus(item) : "";
+        const archivedStatus = listFilter === "archived" ? formatArchivedStatus(item) : "";
         const row = document.createElement("div");
         row.className = "list-item";
         row.innerHTML = `
@@ -791,6 +824,7 @@
             <small>${formatPreview(field1)}</small><br />
             <small>${formatPreview(field2)}</small>
             ${learnedStatus ? `<br /><span class="chip" style="margin-top: 6px;">${learnedStatus}</span>` : ""}
+            ${archivedStatus ? `<br /><span class="chip" style="margin-top: 6px;">${archivedStatus}</span>` : ""}
           </div>
           <div>
             <button class="btn ghost" data-play-index="">Play</button>
@@ -844,8 +878,12 @@
           if (jp === null) return;
           const en = promptForSentenceText("Edit English (item 2)", item.sentence || "");
           if (en === null) return;
-          if (!jp || !en) {
-            alert("Both Japanese and English are required.");
+          if (!en) {
+            alert("English is required.");
+            return;
+          }
+          if (isDuplicateEnglish(en, idx)) {
+            alert("This English sentence is already registered.");
             return;
           }
           item.jp = jp;
@@ -858,10 +896,13 @@
 
     function updateLearnedFilterButtons() {
       if (showActiveBtn) {
-        showActiveBtn.disabled = !showLearnedOnly;
+        showActiveBtn.disabled = listFilter === "active";
       }
       if (showLearnedBtn) {
-        showLearnedBtn.disabled = showLearnedOnly;
+        showLearnedBtn.disabled = listFilter === "learned";
+      }
+      if (showArchivedBtn) {
+        showArchivedBtn.disabled = listFilter === "archived";
       }
     }
 
@@ -879,18 +920,21 @@
     }
 
     function renderPracticeSelect() {
+      const dueCount = getDueIndices().length;
       if (sentences.length === 0) {
         playBtn.disabled = true;
         checkBtn.disabled = true;
         learnedBtn.disabled = true;
+        archivedBtn.disabled = true;
         resetPracticeUI();
         updateProgress();
         return;
       }
-      if (getDueIndices().length === 0) {
+      if (dueCount === 0) {
         playBtn.disabled = true;
         checkBtn.disabled = true;
         learnedBtn.disabled = true;
+        archivedBtn.disabled = true;
         showCompletedUI(true);
         return;
       }
@@ -898,6 +942,11 @@
       if (sentences.length !== lastSentencesCount) {
         rebuildQueue();
         lastSentencesCount = sentences.length;
+      }
+      if (dueCount !== lastDueCount) {
+        rebuildQueue();
+        rebuildSpeakingQueue();
+        lastDueCount = dueCount;
       }
       playBtn.disabled = false;
       checkBtn.disabled = false;
@@ -908,6 +957,7 @@
 
     function renderSpeakingSelect() {
       if (!speakingCheckBtn) return;
+      const dueCount = getDueIndices().length;
       if (sentences.length === 0) {
         speakingCheckBtn.disabled = true;
         resetSpeakingUI();
@@ -917,7 +967,7 @@
         }
         return;
       }
-      if (getDueIndices().length === 0) {
+      if (dueCount === 0) {
         speakingCheckBtn.disabled = true;
         showSpeakingCompletedUI(true);
         return;
@@ -925,6 +975,11 @@
       if (sentences.length !== lastSpeakingCount) {
         rebuildSpeakingQueue();
         lastSpeakingCount = sentences.length;
+      }
+      if (dueCount !== lastDueCount) {
+        rebuildQueue();
+        rebuildSpeakingQueue();
+        lastDueCount = dueCount;
       }
       speakingCheckBtn.disabled = false;
       pickSpeakingSentence();
@@ -943,6 +998,7 @@
       checkBtn.textContent = "Check";
       checkBtn.dataset.mode = "check";
       learnedBtn.style.display = "none";
+      archivedBtn.style.display = "none";
     }
 
     function resetSpeakingUI() {
@@ -1165,6 +1221,7 @@
       checkBtn.textContent = "Next";
       checkBtn.dataset.mode = "next";
       learnedBtn.style.display = "inline-flex";
+      archivedBtn.style.display = "inline-flex";
       revealBox.style.display = "block";
       revealBox.textContent = item.sentence;
       speakSentenceOnce(1);
@@ -1180,7 +1237,11 @@
     saveBtn.addEventListener("click", () => {
       const jp = sentenceJpEl.value.trim();
       const sentence = sentenceEnEl.value.trim();
-      if (!jp && !sentence) {
+      if (!sentence) {
+        return;
+      }
+      if (isDuplicateEnglish(sentence)) {
+        showToast("This English sentence is already registered.");
         return;
       }
       const newItem = {
@@ -1192,6 +1253,13 @@
       sentenceJpEl.value = "";
       sentenceEnEl.value = "";
       renderAll();
+    });
+
+    sentenceEnEl.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        saveBtn.click();
+      }
     });
 
     clearBtn.addEventListener("click", () => {
@@ -1207,14 +1275,21 @@
 
     if (showActiveBtn) {
       showActiveBtn.addEventListener("click", () => {
-        showLearnedOnly = false;
+        listFilter = "active";
         renderSentenceList();
       });
     }
 
     if (showLearnedBtn) {
       showLearnedBtn.addEventListener("click", () => {
-        showLearnedOnly = true;
+        listFilter = "learned";
+        renderSentenceList();
+      });
+    }
+
+    if (showArchivedBtn) {
+      showArchivedBtn.addEventListener("click", () => {
+        listFilter = "archived";
         renderSentenceList();
       });
     }
@@ -1352,6 +1427,25 @@
       renderPracticeSelect();
       renderSpeakingSelect();
     });
+
+    if (archivedBtn) {
+      archivedBtn.addEventListener("click", () => {
+        if (sentences.length === 0 || currentIndex < 0) return;
+        const archivedIndex = currentIndex;
+        const archivedItem = sentences[archivedIndex];
+        if (archivedItem) {
+          archivedItem.archivedAt = Date.now();
+        }
+        saveSets();
+        remainingIndices = remainingIndices.filter((i) => i !== archivedIndex);
+        currentIndex = -1;
+        rebuildQueue();
+        rebuildSpeakingQueue();
+        renderSentenceList();
+        renderPracticeSelect();
+        renderSpeakingSelect();
+      });
+    }
 
     tabBtns.forEach((btn) => {
       btn.addEventListener("click", () => {
