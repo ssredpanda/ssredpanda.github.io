@@ -1452,6 +1452,10 @@
       renderSentenceList();
       renderPracticeSelect();
       renderSpeakingSelect();
+      if (currentIndex >= 0) {
+        speakSentence(1);
+        setTimeout(() => checkBtn.focus(), 0);
+      }
     });
 
     if (archivedBtn) {
@@ -1470,6 +1474,10 @@
         renderSentenceList();
         renderPracticeSelect();
         renderSpeakingSelect();
+        if (currentIndex >= 0) {
+          speakSentence(1);
+          setTimeout(() => checkBtn.focus(), 0);
+        }
       });
     }
 
