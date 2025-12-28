@@ -1507,6 +1507,30 @@
           event.preventDefault();
         }
       }
+      if (combo && key === "p") {
+        event.preventDefault();
+        if (!playBtn.disabled) {
+          playBtn.click();
+        }
+      }
+      if (combo && key === "n") {
+        event.preventDefault();
+        if (checkBtn.dataset.mode === "next" && !checkBtn.disabled) {
+          checkBtn.click();
+        }
+      }
+      if (combo && key === "l") {
+        event.preventDefault();
+        if (learnedBtn.style.display !== "none" && !learnedBtn.disabled) {
+          learnedBtn.click();
+        }
+      }
+      if (combo && key === "a") {
+        event.preventDefault();
+        if (archivedBtn.style.display !== "none" && !archivedBtn.disabled) {
+          archivedBtn.click();
+        }
+      }
     });
 
     loadSets();
