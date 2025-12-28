@@ -1493,7 +1493,7 @@
 
     document.addEventListener("keydown", (event) => {
       const key = event.key.toLowerCase();
-      const combo = event.ctrlKey || event.metaKey;
+      const combo = (event.ctrlKey || event.metaKey) && event.shiftKey;
       if (combo && key === "r") {
         event.preventDefault();
         speakSentence(1);
@@ -1514,8 +1514,11 @@
       }
       if (combo && key === "p") {
         event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
         if (!playBtn.disabled) {
-          playBtn.click();
+          speakSentence(1);
+          setTimeout(() => checkBtn.focus(), 0);
         }
       }
       if (combo && key === "n") {
@@ -1526,17 +1529,21 @@
       }
       if (combo && key === "l") {
         event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
         if (learnedBtn.style.display !== "none" && !learnedBtn.disabled) {
           learnedBtn.click();
         }
       }
       if (combo && key === "a") {
         event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
         if (archivedBtn.style.display !== "none" && !archivedBtn.disabled) {
           archivedBtn.click();
         }
       }
-    });
+    }, true);
 
     loadSets();
     renderAll();
