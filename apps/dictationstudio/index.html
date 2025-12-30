@@ -344,6 +344,7 @@
           <div style="margin-bottom: 10px;">
             <button class="btn ghost" id="orderBtn">Newest First</button>
             <button class="btn ghost" id="showActiveBtn">Active</button>
+            <button class="btn ghost" id="showCorrectBtn">Tomorrow</button>
             <button class="btn ghost" id="showLearnedBtn">Learned</button>
             <button class="btn ghost" id="showArchivedBtn">Archived</button>
           </div>
@@ -369,6 +370,7 @@
 
           <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));">
             <button class="btn" id="checkBtn">Check</button>
+            <button class="btn ghost" id="correctBtn" style="display:none;">Tomorrow</button>
             <button class="btn ghost" id="learnedBtn" style="display:none;">Learned</button>
             <button class="btn ghost" id="archivedBtn" style="display:none;">Archived</button>
           </div>
@@ -432,10 +434,12 @@
     const checkBtn = document.getElementById("checkBtn");
     const learnedBtn = document.getElementById("learnedBtn");
     const archivedBtn = document.getElementById("archivedBtn");
+    const correctBtn = document.getElementById("correctBtn");
     const orderBtn = document.getElementById("orderBtn");
     const showActiveBtn = document.getElementById("showActiveBtn");
     const showLearnedBtn = document.getElementById("showLearnedBtn");
     const showArchivedBtn = document.getElementById("showArchivedBtn");
+    const showCorrectBtn = document.getElementById("showCorrectBtn");
     const revealBox = document.getElementById("revealBox");
     const toast = document.getElementById("toast");
     const speakingPrompt = document.getElementById("speakingPrompt");
@@ -460,6 +464,7 @@
     let lastSpeakingCount = 0;
     let lastDueCount = 0;
     const learnedCooldownMs = 14 * 24 * 60 * 60 * 1000;
+    const correctCooldownMs = 24 * 60 * 60 * 1000;
     let listFilter = "active";
     
     function refreshActiveSetState() {
@@ -526,11 +531,22 @@
       sentences = active ? active.sentences : [];
     }
 
+    function getCooldownUntil(item) {
+      if (!item) return 0;
+      return Math.max(item.learnedUntil || 0, item.correctUntil || 0);
+    }
+
+    function isCooldownActive(timestamp) {
+      if (!timestamp) return false;
+      return Date.now() < timestamp;
+    }
+
     function isSentenceDue(item) {
       if (!item) return false;
       if (item.archivedAt) return false;
-      if (!item.learnedUntil) return true;
-      return Date.now() >= item.learnedUntil;
+      const cooldownUntil = getCooldownUntil(item);
+      if (!cooldownUntil) return true;
+      return Date.now() >= cooldownUntil;
     }
 
     function getDueIndices() {
@@ -782,6 +798,15 @@
         const d = String(date.getDate()).padStart(2, "0");
         return `${y}-${m}-${d}`;
       };
+      const formatCorrectStatus = (item) => {
+        if (!item || !item.correctUntil) return "";
+        const date = new Date(item.correctUntil);
+        if (Number.isNaN(date.getTime())) return "";
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, "0");
+        const d = String(date.getDate()).padStart(2, "0");
+        return `${y}-${m}-${d}`;
+      };
       const formatArchivedStatus = (item) => {
         if (!item || !item.archivedAt) return "";
         const date = new Date(item.archivedAt);
@@ -795,9 +820,12 @@
       const indexed = sentences
         .map((item, index) => ({ item, index }))
         .filter(({ item }) => {
-          if (listFilter === "learned") return !!item.learnedUntil;
+          const learnedActive = isCooldownActive(item.learnedUntil);
+          const correctActive = isCooldownActive(item.correctUntil);
+          if (listFilter === "learned") return learnedActive;
+          if (listFilter === "correct") return correctActive;
           if (listFilter === "archived") return !!item.archivedAt;
-          return !item.learnedUntil && !item.archivedAt;
+          return !learnedActive && !correctActive && !item.archivedAt;
         });
       if (!sortNewestFirst) {
         indexed.reverse();
@@ -806,6 +834,8 @@
       if (indexed.length === 0) {
         sentenceList.innerHTML = listFilter === "learned"
           ? "<p>No learned sentences yet.</p>"
+          : listFilter === "correct"
+            ? "<p>No tomorrow sentences yet.</p>"
           : listFilter === "archived"
             ? "<p>No archived sentences yet.</p>"
             : "<p>No active sentences.</p>";
@@ -816,8 +846,9 @@
         const field1 = item.jp ? item.jp : item.sentence;
         const field2 = item.jp ? item.sentence : "";
         const learnedStatus = listFilter === "learned" ? formatLearnedStatus(item) : "";
+        const correctStatus = listFilter === "correct" ? formatCorrectStatus(item) : "";
         const archivedStatus = listFilter === "archived" ? formatArchivedStatus(item) : "";
-        const showRestore = listFilter === "learned" || listFilter === "archived";
+        const showRestore = listFilter === "learned" || listFilter === "correct" || listFilter === "archived";
         const row = document.createElement("div");
         row.className = "list-item";
         row.innerHTML = `
@@ -827,6 +858,7 @@
           </div>
           <div>
             ${learnedStatus ? `<span class="chip">${learnedStatus}</span>` : ""}
+            ${correctStatus ? `<span class="chip">${correctStatus}</span>` : ""}
             ${archivedStatus ? `<span class="chip">${archivedStatus}</span>` : ""}
             <button class="btn ghost" data-play-index="">Play</button>
             <button class="btn ghost" data-edit-index="${index}">Edit</button>
@@ -903,6 +935,9 @@
           if (item.learnedUntil) {
             delete item.learnedUntil;
           }
+          if (item.correctUntil) {
+            delete item.correctUntil;
+          }
           if (item.archivedAt) {
             delete item.archivedAt;
           }
@@ -921,6 +956,9 @@
       }
       if (showArchivedBtn) {
         showArchivedBtn.disabled = listFilter === "archived";
+      }
+      if (showCorrectBtn) {
+        showCorrectBtn.disabled = listFilter === "correct";
       }
     }
 
@@ -1017,6 +1055,7 @@
       checkBtn.dataset.mode = "check";
       learnedBtn.style.display = "none";
       archivedBtn.style.display = "none";
+      correctBtn.style.display = "none";
     }
 
     function resetSpeakingUI() {
@@ -1079,6 +1118,7 @@
       checkBtn.textContent = "Restart";
       checkBtn.dataset.mode = "restart";
       learnedBtn.style.display = "none";
+      correctBtn.style.display = "none";
       updateProgress();
     }
 
@@ -1240,6 +1280,7 @@
       checkBtn.dataset.mode = "next";
       learnedBtn.style.display = "inline-flex";
       archivedBtn.style.display = "inline-flex";
+      correctBtn.style.display = "inline-flex";
       revealBox.style.display = "block";
       revealBox.textContent = item.sentence;
       copyRevealToClipboard();
@@ -1309,6 +1350,12 @@
     if (showArchivedBtn) {
       showArchivedBtn.addEventListener("click", () => {
         listFilter = "archived";
+        renderSentenceList();
+      });
+    }
+    if (showCorrectBtn) {
+      showCorrectBtn.addEventListener("click", () => {
+        listFilter = "correct";
         renderSentenceList();
       });
     }
@@ -1458,6 +1505,32 @@
         setTimeout(() => checkBtn.focus(), 0);
       }
     });
+
+    if (correctBtn) {
+      correctBtn.addEventListener("click", () => {
+        if (sentences.length === 0 || currentIndex < 0) return;
+        const correctIndex = currentIndex;
+        const correctItem = sentences[correctIndex];
+        if (correctItem) {
+          if (correctItem.learnedUntil) {
+            delete correctItem.learnedUntil;
+          }
+          correctItem.correctUntil = Date.now() + correctCooldownMs;
+        }
+        saveSets();
+        remainingIndices = remainingIndices.filter((i) => i !== correctIndex);
+        currentIndex = -1;
+        rebuildQueue();
+        rebuildSpeakingQueue();
+        renderSentenceList();
+        renderPracticeSelect();
+        renderSpeakingSelect();
+        if (currentIndex >= 0) {
+          speakSentence(1);
+          setTimeout(() => checkBtn.focus(), 0);
+        }
+      });
+    }
 
     if (archivedBtn) {
       archivedBtn.addEventListener("click", () => {
