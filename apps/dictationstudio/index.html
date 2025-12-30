@@ -345,7 +345,8 @@
             <button class="btn ghost" id="orderBtn">Newest First</button>
             <button class="btn ghost" id="showActiveBtn">Active</button>
             <button class="btn ghost" id="showCorrectBtn">Tomorrow</button>
-            <button class="btn ghost" id="showLearnedBtn">Learned</button>
+            <button class="btn ghost" id="showLearnedBtn">Week</button>
+            <button class="btn ghost" id="showMonthBtn">Month</button>
             <button class="btn ghost" id="showArchivedBtn">Archived</button>
           </div>
           <div class="list" id="sentenceList"></div>
@@ -370,7 +371,8 @@
 
           <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));">
             <button class="btn ghost" id="correctBtn" style="display:none;">Tomorrow</button>
-            <button class="btn ghost" id="learnedBtn" style="display:none;">Learned</button>
+            <button class="btn ghost" id="learnedBtn" style="display:none;">Week</button>
+            <button class="btn ghost" id="monthBtn" style="display:none;">Month</button>
             <button class="btn ghost" id="archivedBtn" style="display:none;">Archived</button>
             <button class="btn" id="checkBtn">Check</button>
           </div>
@@ -433,11 +435,13 @@
     const answerEl = document.getElementById("answer");
     const checkBtn = document.getElementById("checkBtn");
     const learnedBtn = document.getElementById("learnedBtn");
+    const monthBtn = document.getElementById("monthBtn");
     const archivedBtn = document.getElementById("archivedBtn");
     const correctBtn = document.getElementById("correctBtn");
     const orderBtn = document.getElementById("orderBtn");
     const showActiveBtn = document.getElementById("showActiveBtn");
     const showLearnedBtn = document.getElementById("showLearnedBtn");
+    const showMonthBtn = document.getElementById("showMonthBtn");
     const showArchivedBtn = document.getElementById("showArchivedBtn");
     const showCorrectBtn = document.getElementById("showCorrectBtn");
     const revealBox = document.getElementById("revealBox");
@@ -464,6 +468,7 @@
     let lastSpeakingCount = 0;
     let lastDueCount = 0;
     const learnedCooldownMs = 14 * 24 * 60 * 60 * 1000;
+    const monthCooldownMs = 30 * 24 * 60 * 60 * 1000;
     const correctCooldownMs = 24 * 60 * 60 * 1000;
     let listFilter = "active";
     
@@ -533,7 +538,7 @@
 
     function getCooldownUntil(item) {
       if (!item) return 0;
-      return Math.max(item.learnedUntil || 0, item.correctUntil || 0);
+      return Math.max(item.learnedUntil || 0, item.monthUntil || 0, item.correctUntil || 0);
     }
 
     function isCooldownActive(timestamp) {
@@ -798,6 +803,15 @@
         const d = String(date.getDate()).padStart(2, "0");
         return `${y}-${m}-${d}`;
       };
+      const formatMonthStatus = (item) => {
+        if (!item || !item.monthUntil) return "";
+        const date = new Date(item.monthUntil);
+        if (Number.isNaN(date.getTime())) return "";
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, "0");
+        const d = String(date.getDate()).padStart(2, "0");
+        return `${y}-${m}-${d}`;
+      };
       const formatCorrectStatus = (item) => {
         if (!item || !item.correctUntil) return "";
         const date = new Date(item.correctUntil);
@@ -821,11 +835,13 @@
         .map((item, index) => ({ item, index }))
         .filter(({ item }) => {
           const learnedActive = isCooldownActive(item.learnedUntil);
+          const monthActive = isCooldownActive(item.monthUntil);
           const correctActive = isCooldownActive(item.correctUntil);
           if (listFilter === "learned") return learnedActive;
+          if (listFilter === "month") return monthActive;
           if (listFilter === "correct") return correctActive;
           if (listFilter === "archived") return !!item.archivedAt;
-          return !learnedActive && !correctActive && !item.archivedAt;
+          return !learnedActive && !monthActive && !correctActive && !item.archivedAt;
         });
       if (!sortNewestFirst) {
         indexed.reverse();
@@ -833,7 +849,9 @@
 
       if (indexed.length === 0) {
         sentenceList.innerHTML = listFilter === "learned"
-          ? "<p>No learned sentences yet.</p>"
+          ? "<p>No week sentences yet.</p>"
+          : listFilter === "month"
+            ? "<p>No month sentences yet.</p>"
           : listFilter === "correct"
             ? "<p>No tomorrow sentences yet.</p>"
           : listFilter === "archived"
@@ -846,9 +864,13 @@
         const field1 = item.jp ? item.jp : item.sentence;
         const field2 = item.jp ? item.sentence : "";
         const learnedStatus = listFilter === "learned" ? formatLearnedStatus(item) : "";
+        const monthStatus = listFilter === "month" ? formatMonthStatus(item) : "";
         const correctStatus = listFilter === "correct" ? formatCorrectStatus(item) : "";
         const archivedStatus = listFilter === "archived" ? formatArchivedStatus(item) : "";
-        const showRestore = listFilter === "learned" || listFilter === "correct" || listFilter === "archived";
+        const showRestore = listFilter === "learned"
+          || listFilter === "month"
+          || listFilter === "correct"
+          || listFilter === "archived";
         const row = document.createElement("div");
         row.className = "list-item";
         row.innerHTML = `
@@ -858,6 +880,7 @@
           </div>
           <div>
             ${learnedStatus ? `<span class="chip">${learnedStatus}</span>` : ""}
+            ${monthStatus ? `<span class="chip">${monthStatus}</span>` : ""}
             ${correctStatus ? `<span class="chip">${correctStatus}</span>` : ""}
             ${archivedStatus ? `<span class="chip">${archivedStatus}</span>` : ""}
             <button class="btn ghost" data-play-index="">Play</button>
@@ -935,6 +958,9 @@
           if (item.learnedUntil) {
             delete item.learnedUntil;
           }
+          if (item.monthUntil) {
+            delete item.monthUntil;
+          }
           if (item.correctUntil) {
             delete item.correctUntil;
           }
@@ -953,6 +979,9 @@
       }
       if (showLearnedBtn) {
         showLearnedBtn.disabled = listFilter === "learned";
+      }
+      if (showMonthBtn) {
+        showMonthBtn.disabled = listFilter === "month";
       }
       if (showArchivedBtn) {
         showArchivedBtn.disabled = listFilter === "archived";
@@ -981,6 +1010,7 @@
         playBtn.disabled = true;
         checkBtn.disabled = true;
         learnedBtn.disabled = true;
+        monthBtn.disabled = true;
         archivedBtn.disabled = true;
         resetPracticeUI();
         updateProgress();
@@ -990,6 +1020,7 @@
         playBtn.disabled = true;
         checkBtn.disabled = true;
         learnedBtn.disabled = true;
+        monthBtn.disabled = true;
         archivedBtn.disabled = true;
         showCompletedUI(true);
         return;
@@ -1007,6 +1038,7 @@
       playBtn.disabled = false;
       checkBtn.disabled = false;
       learnedBtn.disabled = false;
+      monthBtn.disabled = false;
       pickRandomSentence();
       playBtn.focus();
     }
@@ -1054,6 +1086,7 @@
       checkBtn.textContent = "Check";
       checkBtn.dataset.mode = "check";
       learnedBtn.style.display = "none";
+      monthBtn.style.display = "none";
       archivedBtn.style.display = "none";
       correctBtn.style.display = "none";
     }
@@ -1118,6 +1151,7 @@
       checkBtn.textContent = "Restart";
       checkBtn.dataset.mode = "restart";
       learnedBtn.style.display = "none";
+      monthBtn.style.display = "none";
       correctBtn.style.display = "none";
       updateProgress();
     }
@@ -1279,6 +1313,7 @@
       checkBtn.textContent = "Next";
       checkBtn.dataset.mode = "next";
       learnedBtn.style.display = "inline-flex";
+      monthBtn.style.display = "inline-flex";
       archivedBtn.style.display = "inline-flex";
       correctBtn.style.display = "inline-flex";
       revealBox.style.display = "block";
@@ -1343,6 +1378,12 @@
     if (showLearnedBtn) {
       showLearnedBtn.addEventListener("click", () => {
         listFilter = "learned";
+        renderSentenceList();
+      });
+    }
+    if (showMonthBtn) {
+      showMonthBtn.addEventListener("click", () => {
+        listFilter = "month";
         renderSentenceList();
       });
     }
@@ -1490,6 +1531,12 @@
       const learnedIndex = currentIndex;
       const learnedItem = sentences[learnedIndex];
       if (learnedItem) {
+        if (learnedItem.monthUntil) {
+          delete learnedItem.monthUntil;
+        }
+        if (learnedItem.correctUntil) {
+          delete learnedItem.correctUntil;
+        }
         learnedItem.learnedUntil = Date.now() + learnedCooldownMs;
       }
       saveSets();
@@ -1506,6 +1553,35 @@
       }
     });
 
+    if (monthBtn) {
+      monthBtn.addEventListener("click", () => {
+        if (sentences.length === 0 || currentIndex < 0) return;
+        const monthIndex = currentIndex;
+        const monthItem = sentences[monthIndex];
+        if (monthItem) {
+          if (monthItem.learnedUntil) {
+            delete monthItem.learnedUntil;
+          }
+          if (monthItem.correctUntil) {
+            delete monthItem.correctUntil;
+          }
+          monthItem.monthUntil = Date.now() + monthCooldownMs;
+        }
+        saveSets();
+        remainingIndices = remainingIndices.filter((i) => i !== monthIndex);
+        currentIndex = -1;
+        rebuildQueue();
+        rebuildSpeakingQueue();
+        renderSentenceList();
+        renderPracticeSelect();
+        renderSpeakingSelect();
+        if (currentIndex >= 0) {
+          speakSentence(1);
+          setTimeout(() => checkBtn.focus(), 0);
+        }
+      });
+    }
+
     if (correctBtn) {
       correctBtn.addEventListener("click", () => {
         if (sentences.length === 0 || currentIndex < 0) return;
@@ -1514,6 +1590,9 @@
         if (correctItem) {
           if (correctItem.learnedUntil) {
             delete correctItem.learnedUntil;
+          }
+          if (correctItem.monthUntil) {
+            delete correctItem.monthUntil;
           }
           correctItem.correctUntil = Date.now() + correctCooldownMs;
         }
@@ -1568,7 +1647,7 @@
       const key = event.key.toLowerCase();
       const hasCtrl = event.ctrlKey || event.metaKey;
       const combo = hasCtrl && event.shiftKey;
-      if (hasCtrl && !event.shiftKey && key === "r") {
+      if (combo && key === "z") {
         event.preventDefault();
         event.stopPropagation();
         event.stopImmediatePropagation();
@@ -1608,7 +1687,7 @@
           checkBtn.click();
         }
       }
-      if (combo && key === "l") {
+      if (combo && key === "w") {
         event.preventDefault();
         event.stopPropagation();
         event.stopImmediatePropagation();
@@ -1622,6 +1701,14 @@
         event.stopImmediatePropagation();
         if (archivedBtn.style.display !== "none" && !archivedBtn.disabled) {
           archivedBtn.click();
+        }
+      }
+      if (combo && key === "m") {
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        if (monthBtn.style.display !== "none" && !monthBtn.disabled) {
+          monthBtn.click();
         }
       }
       if (combo && key === "t") {
