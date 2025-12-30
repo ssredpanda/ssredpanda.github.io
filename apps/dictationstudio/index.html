@@ -1506,6 +1506,11 @@
         speakSentence(0.7);
       }
       if (combo && key === "c") {
+        if (checkBtn.dataset.mode === "next" && !checkBtn.disabled) {
+          event.preventDefault();
+          checkBtn.click();
+          return;
+        }
         if (checkBtn.dataset.mode === "check" && !checkBtn.disabled) {
           event.preventDefault();
           checkBtn.click();
