@@ -1624,6 +1624,14 @@
           archivedBtn.click();
         }
       }
+      if (combo && key === "t") {
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        if (correctBtn.style.display !== "none" && !correctBtn.disabled) {
+          correctBtn.click();
+        }
+      }
     }, true);
 
     loadSets();
