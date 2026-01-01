@@ -469,7 +469,7 @@
     let lastDueCount = 0;
     const learnedCooldownMs = 7 * 24 * 60 * 60 * 1000;
     const monthCooldownMs = 30 * 24 * 60 * 60 * 1000;
-    const correctCooldownMs = 24 * 60 * 60 * 1000;
+    const jstOffsetMs = 9 * 60 * 60 * 1000;
     let listFilter = "active";
     
     function refreshActiveSetState() {
@@ -539,6 +539,15 @@
     function getCooldownUntil(item) {
       if (!item) return 0;
       return Math.max(item.learnedUntil || 0, item.monthUntil || 0, item.correctUntil || 0);
+    }
+
+    function getNextJstMidnightTimestamp() {
+      const now = Date.now();
+      const nowJst = new Date(now + jstOffsetMs);
+      const year = nowJst.getUTCFullYear();
+      const month = nowJst.getUTCMonth();
+      const date = nowJst.getUTCDate();
+      return Date.UTC(year, month, date + 1, 0, 0, 0) - jstOffsetMs;
     }
 
     function isCooldownActive(timestamp) {
@@ -883,7 +892,7 @@
             ${monthStatus ? `<span class="chip">${monthStatus}</span>` : ""}
             ${correctStatus ? `<span class="chip">${correctStatus}</span>` : ""}
             ${archivedStatus ? `<span class="chip">${archivedStatus}</span>` : ""}
-            <button class="btn ghost" data-play-index="">Play</button>
+            <button class="btn ghost" data-play-index="${index}">Play</button>
             <button class="btn ghost" data-edit-index="${index}">Edit</button>
             <button class="btn ghost" data-index="${index}">Delete</button>
             ${showRestore ? `<button class="btn ghost" data-restore-index="${index}">Restore</button>` : ""}
@@ -910,6 +919,7 @@
           saveSets();
           renderAll();
         });
+      });
 
       sentenceList.querySelectorAll("button[data-play-index]").forEach((btn) => {
         btn.addEventListener("click", (e) => {
@@ -922,8 +932,6 @@
           }
           speakText(text, 1);
         });
-      });
-
       });
 
       sentenceList.querySelectorAll("button[data-edit-index]").forEach((btn) => {
@@ -1594,7 +1602,7 @@
           if (correctItem.monthUntil) {
             delete correctItem.monthUntil;
           }
-          correctItem.correctUntil = Date.now() + correctCooldownMs;
+          correctItem.correctUntil = getNextJstMidnightTimestamp();
         }
         saveSets();
         remainingIndices = remainingIndices.filter((i) => i !== correctIndex);
