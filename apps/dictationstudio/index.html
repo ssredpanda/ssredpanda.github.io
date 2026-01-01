@@ -307,6 +307,7 @@
       <button class="tab-btn active" data-view="practice">Dictation</button>
       <button class="tab-btn" data-view="speaking">Speaking</button>
       <button class="tab-btn" data-view="register">Register</button>
+      <button class="tab-btn" data-view="maintenance">Maintenance</button>
     </div>
   </header>
 
@@ -350,6 +351,20 @@
             <button class="btn ghost" id="showArchivedBtn">Archived</button>
           </div>
           <div class="list" id="sentenceList"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="maintenance" class="view">
+      <div class="grid register-grid">
+        <div class="panel">
+          <h2>Backup & Restore</h2>
+          <p style="margin-bottom: 12px;">Export all sets as JSON, or restore them from a backup file.</p>
+          <div class="set-controls">
+            <button class="btn secondary" id="backupBtn">Backup JSON</button>
+            <button class="btn ghost" id="restoreBtn">Restore JSON</button>
+            <input type="file" id="restoreInput" accept=".json,application/json" style="display:none;" />
+          </div>
         </div>
       </div>
     </section>
@@ -430,6 +445,9 @@
     const importSetBtn = document.getElementById("importSetBtn");
     const exportSetBtn = document.getElementById("exportSetBtn");
     const importInput = document.getElementById("importInput");
+    const backupBtn = document.getElementById("backupBtn");
+    const restoreBtn = document.getElementById("restoreBtn");
+    const restoreInput = document.getElementById("restoreInput");
 
     const playBtn = document.getElementById("playBtn");
     const answerEl = document.getElementById("answer");
@@ -750,6 +768,81 @@
       link.click();
       document.body.removeChild(link);
       setTimeout(() => URL.revokeObjectURL(url), 1500);
+    }
+
+    function exportAllSetsToJSON() {
+      if (!Array.isArray(sets) || sets.length === 0) {
+        alert("No sets to back up.");
+        return;
+      }
+      const payload = {
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        activeSetId,
+        sets
+      };
+      const json = JSON.stringify(payload, null, 2);
+      const filename = "dictation_backup.json";
+      const blob = new Blob([json], { type: "application/json;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(url), 1500);
+    }
+
+    function normalizeImportedSets(rawSets) {
+      if (!Array.isArray(rawSets)) return [];
+      return rawSets.map((set, index) => {
+        const name = typeof set?.name === "string" && set.name.trim()
+          ? set.name.trim()
+          : `Set ${index + 1}`;
+        const id = typeof set?.id === "string" && set.id.trim()
+          ? set.id.trim()
+          : generateSetId();
+        const rawSentences = Array.isArray(set?.sentences) ? set.sentences : [];
+        const sentences = rawSentences
+          .map((item) => {
+            if (!item || typeof item !== "object") return null;
+            const sentence = typeof item.sentence === "string" ? item.sentence.trim() : "";
+            if (!sentence) return null;
+            const normalized = { ...item, sentence };
+            if (typeof normalized.jp !== "string" && typeof normalized.ja === "string") {
+              normalized.jp = normalized.ja;
+            }
+            return normalized;
+          })
+          .filter(Boolean);
+        return { id, name, sentences };
+      });
+    }
+
+    function importJSONContent(text) {
+      let data = null;
+      try {
+        data = JSON.parse(text);
+      } catch (err) {
+        alert("Invalid JSON file.");
+        return;
+      }
+      const normalized = normalizeImportedSets(data?.sets);
+      if (normalized.length === 0) {
+        alert("No valid sets were found in the JSON file.");
+        return;
+      }
+      const confirmed = window.confirm(`Replace all current sets with ${normalized.length} imported sets?`);
+      if (!confirmed) return;
+      sets = normalized;
+      activeSetId = typeof data?.activeSetId === "string"
+        && sets.some((set) => set.id === data.activeSetId)
+        ? data.activeSetId
+        : sets[0].id;
+      saveSets();
+      refreshActiveSetState();
+      showToast(`Restored ${sets.length} sets`);
     }
 
     function importTSVContent(text) {
@@ -1469,6 +1562,19 @@
       });
     }
 
+    if (backupBtn) {
+      backupBtn.addEventListener("click", () => {
+        exportAllSetsToJSON();
+      });
+    }
+
+    if (restoreBtn && restoreInput) {
+      restoreBtn.addEventListener("click", () => {
+        restoreInput.value = "";
+        restoreInput.click();
+      });
+    }
+
     if (importInput) {
       importInput.addEventListener("change", (event) => {
         const file = event.target.files && event.target.files[0];
@@ -1477,6 +1583,22 @@
         reader.onload = (e) => {
           const result = e.target && typeof e.target.result === "string" ? e.target.result : "";
           importTSVContent(result);
+        };
+        reader.onerror = () => {
+          alert("Failed to read the selected file.");
+        };
+        reader.readAsText(file);
+      });
+    }
+
+    if (restoreInput) {
+      restoreInput.addEventListener("change", (event) => {
+        const file = event.target.files && event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const result = e.target && typeof e.target.result === "string" ? e.target.result : "";
+          importJSONContent(result);
         };
         reader.onerror = () => {
           alert("Failed to read the selected file.");
