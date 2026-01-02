@@ -1302,6 +1302,28 @@
       }
     }
 
+    function getChromeEnglishVoice() {
+      if (!synth) return null;
+      const voices = synth.getVoices();
+      if (!voices || voices.length === 0) return null;
+      const googleUS = voices.find((voice) => voice.name === "Google US English");
+      if (googleUS) return googleUS;
+      const googleUK = voices.find((voice) => voice.name === "Google UK English Female");
+      if (googleUK) return googleUK;
+      const enUS = voices.find((voice) => (voice.lang || "").toLowerCase().startsWith("en-us"));
+      if (enUS) return enUS;
+      const en = voices.find((voice) => (voice.lang || "").toLowerCase().startsWith("en"));
+      return en || null;
+    }
+
+    function applyChromeEnglishVoice(utter) {
+      if (!utter) return;
+      const voice = getChromeEnglishVoice();
+      if (voice) {
+        utter.voice = voice;
+      }
+    }
+
     function speakSentence(rate = 1) {
       const item = getSelectedSentence();
       if (!item) return;
@@ -1313,6 +1335,7 @@
         utterance = new SpeechSynthesisUtterance(item.sentence);
         utterance.rate = rate;
         utterance.lang = "en-US";
+        applyChromeEnglishVoice(utterance);
         utterance.onend = () => {
           count += 1;
           if (count < 3) {
@@ -1333,6 +1356,7 @@
       utterance = new SpeechSynthesisUtterance(item.sentence);
       utterance.rate = rate;
       utterance.lang = "en-US";
+      applyChromeEnglishVoice(utterance);
       synth.speak(utterance);
     }
 
@@ -1344,6 +1368,7 @@
       utterance = new SpeechSynthesisUtterance(text);
       utterance.rate = rate;
       utterance.lang = "en-US";
+      applyChromeEnglishVoice(utterance);
       synth.speak(utterance);
     }
 
