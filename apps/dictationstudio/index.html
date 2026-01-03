@@ -896,6 +896,22 @@
         if (!text) return "-";
         return text.length > 48 ? `${text.slice(0, 48)}…` : text;
       };
+      const buildSentencePreview = (item) => {
+        const jp = typeof item.jp === "string" ? item.jp.trim() : "";
+        const en = typeof item.sentence === "string" ? item.sentence.trim() : "";
+        const lines = [];
+        if (jp) {
+          lines.push(formatPreview(jp));
+          if (en) {
+            lines.push(formatPreview(en));
+          }
+        } else if (en) {
+          lines.push(formatPreview(en));
+        } else {
+          lines.push("-");
+        }
+        return lines.map((line) => `<small>${line}</small>`).join("<br />");
+      };
       const formatLearnedStatus = (item) => {
         if (!item || !item.learnedUntil) return "";
         const date = new Date(item.learnedUntil);
@@ -963,8 +979,6 @@
       }
 
       indexed.forEach(({ item, index }) => {
-        const field1 = item.jp ? item.jp : item.sentence;
-        const field2 = item.jp ? item.sentence : "";
         const learnedStatus = listFilter === "learned" ? formatLearnedStatus(item) : "";
         const monthStatus = listFilter === "month" ? formatMonthStatus(item) : "";
         const correctStatus = listFilter === "correct" ? formatCorrectStatus(item) : "";
@@ -977,8 +991,7 @@
         row.className = "list-item";
         row.innerHTML = `
           <div class="sentence-text" data-sentence="${index}" style="cursor: pointer;" title="Double-click to copy">
-            <small>${formatPreview(field1)}</small><br />
-            <small>${formatPreview(field2)}</small>
+            ${buildSentencePreview(item)}
           </div>
           <div>
             ${learnedStatus ? `<span class="chip">${learnedStatus}</span>` : ""}
@@ -998,7 +1011,9 @@
         el.addEventListener("dblclick", (e) => {
           const idx = Number(e.currentTarget.dataset.sentence);
           const item = sentences[idx];
-          const text = item ? (item.jp ? item.jp : item.sentence) : "";
+          const jp = item && typeof item.jp === "string" ? item.jp.trim() : "";
+          const en = item && typeof item.sentence === "string" ? item.sentence.trim() : "";
+          const text = jp || en || "";
           if (text) {
             copyToClipboard(text);
           }
