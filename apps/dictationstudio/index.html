@@ -199,6 +199,21 @@
       color: var(--muted);
     }
 
+    .category-options {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      margin: 10px 0 12px;
+    }
+
+    .category-option {
+      display: inline-flex;
+      gap: 6px;
+      align-items: center;
+      font-weight: 600;
+    }
+
     .chip {
       display: inline-flex;
       align-items: center;
@@ -333,6 +348,17 @@
           <h2>Add Sentence</h2>
           <input id="sentenceJp" type="text" placeholder="Enter a Japanese sentence" />
           <input id="sentenceEn" type="text" placeholder="Enter an English sentence" style="margin-top: 10px; margin-bottom: 8px;" />
+          <label>Categories</label>
+          <div class="category-options">
+            <label class="category-option">
+              <input type="checkbox" id="categoryDictation" checked />
+              Dictation
+            </label>
+            <label class="category-option">
+              <input type="checkbox" id="categorySpeaking" />
+              Speaking
+            </label>
+          </div>
 
           <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));">
             <button class="btn" id="saveBtn">Save</button>
@@ -349,6 +375,12 @@
             <button class="btn ghost" id="showLearnedBtn">Week</button>
             <button class="btn ghost" id="showMonthBtn">Month</button>
             <button class="btn ghost" id="showArchivedBtn">Archived</button>
+          </div>
+          <div style="margin-bottom: 10px;">
+            <button class="btn ghost" id="showAllCategoriesBtn">All Categories</button>
+            <button class="btn ghost" id="showDictationBtn">Dictation</button>
+            <button class="btn ghost" id="showSpeakingBtn">Speaking</button>
+            <button class="btn ghost" id="showUncategorizedBtn">Uncategorized</button>
           </div>
           <div class="list" id="sentenceList"></div>
         </div>
@@ -438,6 +470,8 @@
     const saveBtn = document.getElementById("saveBtn");
     const clearBtn = document.getElementById("clearBtn");
     const sentenceList = document.getElementById("sentenceList");
+    const categoryDictationEl = document.getElementById("categoryDictation");
+    const categorySpeakingEl = document.getElementById("categorySpeaking");
     const setSelects = document.querySelectorAll(".set-picker");
     const addSetBtn = document.getElementById("addSetBtn");
     const renameSetBtn = document.getElementById("renameSetBtn");
@@ -462,6 +496,10 @@
     const showMonthBtn = document.getElementById("showMonthBtn");
     const showArchivedBtn = document.getElementById("showArchivedBtn");
     const showCorrectBtn = document.getElementById("showCorrectBtn");
+    const showAllCategoriesBtn = document.getElementById("showAllCategoriesBtn");
+    const showDictationBtn = document.getElementById("showDictationBtn");
+    const showSpeakingBtn = document.getElementById("showSpeakingBtn");
+    const showUncategorizedBtn = document.getElementById("showUncategorizedBtn");
     const revealBox = document.getElementById("revealBox");
     const toast = document.getElementById("toast");
     const speakingPrompt = document.getElementById("speakingPrompt");
@@ -473,6 +511,8 @@
     const tabBtns = document.querySelectorAll(".tab-btn");
 
     const synth = window.speechSynthesis;
+    const CATEGORY_DICTATION = "dictation";
+    const CATEGORY_SPEAKING = "speaking";
     let utterance = null;
     let sets = [];
     let activeSetId = "";
@@ -485,24 +525,29 @@
     let speakingRemainingIndices = [];
     let lastSpeakingCount = 0;
     let lastDueCount = 0;
+    let lastSpeakingDueCount = 0;
+    let editingIndex = -1;
     const learnedCooldownMs = 7 * 24 * 60 * 60 * 1000;
     const monthCooldownMs = 30 * 24 * 60 * 60 * 1000;
     const jstOffsetMs = 9 * 60 * 60 * 1000;
     let listFilter = "active";
+    let categoryFilter = "all";
     
     function refreshActiveSetState() {
       updateSentencesReference();
       currentIndex = -1;
       remainingIndices = [];
       lastSentencesCount = sentences.length;
-      lastDueCount = getDueIndices().length;
+      lastDueCount = getDueIndicesByCategory(CATEGORY_DICTATION).length;
       speakingIndex = -1;
       speakingRemainingIndices = [];
       lastSpeakingCount = sentences.length;
+      lastSpeakingDueCount = getDueIndicesByCategory(CATEGORY_SPEAKING).length;
       rebuildQueue();
       rebuildSpeakingQueue();
       resetPracticeUI();
       resetSpeakingUI();
+      resetEditForm();
       renderAll();
     }
 
@@ -581,11 +626,31 @@
       return Date.now() >= cooldownUntil;
     }
 
-    function getDueIndices() {
+    function getSentenceCategories(item) {
+      if (!item) return [CATEGORY_DICTATION];
+      if (Array.isArray(item.categories) && item.categories.length > 0) {
+        return item.categories;
+      }
+      return [CATEGORY_DICTATION];
+    }
+
+    function hasCategory(item, category) {
+      return getSentenceCategories(item).includes(category);
+    }
+
+    function isUncategorized(item) {
+      return !item || !Array.isArray(item.categories) || item.categories.length === 0;
+    }
+
+    function getDueIndicesByCategory(category) {
       return sentences
         .map((item, index) => ({ item, index }))
-        .filter(({ item }) => isSentenceDue(item))
+        .filter(({ item }) => isSentenceDue(item) && hasCategory(item, category))
         .map(({ index }) => index);
+    }
+
+    function hasCategorySentences(category) {
+      return sentences.some((item) => hasCategory(item, category));
     }
 
     function saveSets() {
@@ -649,7 +714,8 @@
       updateSentencesReference();
       lastSentencesCount = sentences.length;
       lastSpeakingCount = sentences.length;
-      lastDueCount = getDueIndices().length;
+      lastDueCount = getDueIndicesByCategory(CATEGORY_DICTATION).length;
+      lastSpeakingDueCount = getDueIndicesByCategory(CATEGORY_SPEAKING).length;
       rebuildQueue();
       rebuildSpeakingQueue();
       saveSets();
@@ -665,7 +731,7 @@
     }
 
     function rebuildQueue() {
-      remainingIndices = getDueIndices();
+      remainingIndices = getDueIndicesByCategory(CATEGORY_DICTATION);
       if (remainingIndices.length > 1 && currentIndex >= 0) {
         remainingIndices = remainingIndices.filter((i) => i !== currentIndex);
       }
@@ -676,7 +742,7 @@
     }
 
     function rebuildSpeakingQueue() {
-      speakingRemainingIndices = getDueIndices();
+      speakingRemainingIndices = getDueIndicesByCategory(CATEGORY_SPEAKING);
       if (speakingRemainingIndices.length > 1 && speakingIndex >= 0) {
         speakingRemainingIndices = speakingRemainingIndices.filter((i) => i !== speakingIndex);
       }
@@ -733,7 +799,7 @@
         const jp = cleaned.slice(0, firstTab).trim();
         const en = cleaned.slice(firstTab + 1).trim();
         if (!en) return;
-        parsed.push({ jp, sentence: en });
+        parsed.push({ jp, sentence: en, categories: [CATEGORY_DICTATION] });
       });
       return parsed;
     }
@@ -948,6 +1014,18 @@
         const d = String(date.getDate()).padStart(2, "0");
         return `${y}-${m}-${d}`;
       };
+      const formatCategoryChips = (item) => {
+        if (isUncategorized(item)) {
+          return `<span class="chip">Uncategorized</span>`;
+        }
+        const categories = getSentenceCategories(item);
+        return categories.map((category) => {
+          if (category === CATEGORY_SPEAKING) {
+            return `<span class="chip">Speaking</span>`;
+          }
+          return `<span class="chip">Dictation</span>`;
+        }).join("");
+      };
 
       const indexed = sentences
         .map((item, index) => ({ item, index }))
@@ -955,6 +1033,9 @@
           const learnedActive = isCooldownActive(item.learnedUntil);
           const monthActive = isCooldownActive(item.monthUntil);
           const correctActive = isCooldownActive(item.correctUntil);
+          const categoryMatch = categoryFilter === "all"
+            || (categoryFilter === "uncategorized" ? isUncategorized(item) : hasCategory(item, categoryFilter));
+          if (!categoryMatch) return false;
           if (listFilter === "learned") return learnedActive;
           if (listFilter === "month") return monthActive;
           if (listFilter === "correct") return correctActive;
@@ -994,6 +1075,7 @@
             ${buildSentencePreview(item)}
           </div>
           <div>
+            ${formatCategoryChips(item)}
             ${learnedStatus ? `<span class="chip">${learnedStatus}</span>` : ""}
             ${monthStatus ? `<span class="chip">${monthStatus}</span>` : ""}
             ${correctStatus ? `<span class="chip">${correctStatus}</span>` : ""}
@@ -1047,22 +1129,18 @@
           const idx = Number(e.currentTarget.dataset.editIndex);
           const item = sentences[idx];
           if (!item) return;
-          const jp = promptForSentenceText("Edit Japanese (item 1)", item.jp || "");
-          if (jp === null) return;
-          const en = promptForSentenceText("Edit English (item 2)", item.sentence || "");
-          if (en === null) return;
-          if (!en) {
-            alert("English is required.");
-            return;
+          editingIndex = idx;
+          sentenceJpEl.value = item.jp || "";
+          sentenceEnEl.value = item.sentence || "";
+          const categories = getSentenceCategories(item);
+          if (categoryDictationEl) {
+            categoryDictationEl.checked = categories.includes(CATEGORY_DICTATION);
           }
-          if (isDuplicateEnglish(en, idx)) {
-            alert("This English sentence is already registered.");
-            return;
+          if (categorySpeakingEl) {
+            categorySpeakingEl.checked = categories.includes(CATEGORY_SPEAKING);
           }
-          item.jp = jp;
-          item.sentence = en;
-          saveSets();
-          renderAll();
+          saveBtn.textContent = "Update";
+          sentenceEnEl.focus();
         });
       });
 
@@ -1105,6 +1183,18 @@
       if (showCorrectBtn) {
         showCorrectBtn.disabled = listFilter === "correct";
       }
+      if (showAllCategoriesBtn) {
+        showAllCategoriesBtn.disabled = categoryFilter === "all";
+      }
+      if (showDictationBtn) {
+        showDictationBtn.disabled = categoryFilter === CATEGORY_DICTATION;
+      }
+      if (showSpeakingBtn) {
+        showSpeakingBtn.disabled = categoryFilter === CATEGORY_SPEAKING;
+      }
+      if (showUncategorizedBtn) {
+        showUncategorizedBtn.disabled = categoryFilter === "uncategorized";
+      }
     }
 
     function copyToClipboard(text) {
@@ -1121,7 +1211,21 @@
     }
 
     function renderPracticeSelect() {
-      const dueCount = getDueIndices().length;
+      const dueCount = getDueIndicesByCategory(CATEGORY_DICTATION).length;
+      if (!hasCategorySentences(CATEGORY_DICTATION)) {
+        playBtn.disabled = true;
+        checkBtn.disabled = true;
+        learnedBtn.disabled = true;
+        monthBtn.disabled = true;
+        archivedBtn.disabled = true;
+        resetPracticeUI();
+        revealBox.style.display = "block";
+        revealBox.className = "overlay";
+        revealBox.textContent = "No dictation sentences yet.";
+        answerEl.disabled = true;
+        updateProgress();
+        return;
+      }
       if (sentences.length === 0) {
         playBtn.disabled = true;
         checkBtn.disabled = true;
@@ -1161,7 +1265,16 @@
 
     function renderSpeakingSelect() {
       if (!speakingCheckBtn) return;
-      const dueCount = getDueIndices().length;
+      const dueCount = getDueIndicesByCategory(CATEGORY_SPEAKING).length;
+      if (!hasCategorySentences(CATEGORY_SPEAKING)) {
+        speakingCheckBtn.disabled = true;
+        resetSpeakingUI();
+        updateSpeakingProgress();
+        if (speakingPrompt) {
+          speakingPrompt.textContent = "No speaking sentences yet.";
+        }
+        return;
+      }
       if (sentences.length === 0) {
         speakingCheckBtn.disabled = true;
         resetSpeakingUI();
@@ -1180,10 +1293,10 @@
         rebuildSpeakingQueue();
         lastSpeakingCount = sentences.length;
       }
-      if (dueCount !== lastDueCount) {
+      if (dueCount !== lastSpeakingDueCount) {
         rebuildQueue();
         rebuildSpeakingQueue();
-        lastDueCount = dueCount;
+        lastSpeakingDueCount = dueCount;
       }
       speakingCheckBtn.disabled = false;
       pickSpeakingSentence();
@@ -1286,7 +1399,7 @@
     }
 
     function updateProgress() {
-      const total = getDueIndices().length;
+      const total = getDueIndicesByCategory(CATEGORY_DICTATION).length;
       const done = total - remainingIndices.length - (currentIndex >= 0 ? 1 : 0);
       const progressEl = document.getElementById("progressText");
       const active = getActiveSet();
@@ -1304,7 +1417,7 @@
 
     function updateSpeakingProgress() {
       if (!speakingProgress) return;
-      const total = getDueIndices().length;
+      const total = getDueIndicesByCategory(CATEGORY_SPEAKING).length;
       const done = total - speakingRemainingIndices.length - (speakingIndex >= 0 ? 1 : 0);
       const active = getActiveSet();
       const label = active ? `${active.name}` : "Current Set";
@@ -1401,6 +1514,19 @@
       }, 1600);
     }
 
+    function resetEditForm() {
+      editingIndex = -1;
+      saveBtn.textContent = "Save";
+      sentenceJpEl.value = "";
+      sentenceEnEl.value = "";
+      if (categoryDictationEl) {
+        categoryDictationEl.checked = true;
+      }
+      if (categorySpeakingEl) {
+        categorySpeakingEl.checked = false;
+      }
+    }
+
     function copyRevealToClipboard() {
       const text = revealBox.textContent.trim();
       if (!text) return false;
@@ -1476,18 +1602,37 @@
       if (!sentence) {
         return;
       }
-      if (isDuplicateEnglish(sentence)) {
+      if (isDuplicateEnglish(sentence, editingIndex)) {
         showToast("This English sentence is already registered.");
         return;
       }
-      const newItem = {
-        sentence,
-        jp
-      };
-      sentences.unshift(newItem);
+      const categories = [];
+      if (categoryDictationEl && categoryDictationEl.checked) {
+        categories.push(CATEGORY_DICTATION);
+      }
+      if (categorySpeakingEl && categorySpeakingEl.checked) {
+        categories.push(CATEGORY_SPEAKING);
+      }
+      if (categories.length === 0) {
+        showToast("Select at least one category.");
+        return;
+      }
+      if (editingIndex >= 0) {
+        const item = sentences[editingIndex];
+        if (!item) return;
+        item.jp = jp;
+        item.sentence = sentence;
+        item.categories = categories;
+      } else {
+        const newItem = {
+          sentence,
+          jp,
+          categories
+        };
+        sentences.unshift(newItem);
+      }
       saveSets();
-      sentenceJpEl.value = "";
-      sentenceEnEl.value = "";
+      resetEditForm();
       renderAll();
     });
 
@@ -1499,8 +1644,7 @@
     });
 
     clearBtn.addEventListener("click", () => {
-      sentenceJpEl.value = "";
-      sentenceEnEl.value = "";
+      resetEditForm();
     });
 
     orderBtn.addEventListener("click", () => {
@@ -1538,6 +1682,30 @@
     if (showCorrectBtn) {
       showCorrectBtn.addEventListener("click", () => {
         listFilter = "correct";
+        renderSentenceList();
+      });
+    }
+    if (showAllCategoriesBtn) {
+      showAllCategoriesBtn.addEventListener("click", () => {
+        categoryFilter = "all";
+        renderSentenceList();
+      });
+    }
+    if (showDictationBtn) {
+      showDictationBtn.addEventListener("click", () => {
+        categoryFilter = CATEGORY_DICTATION;
+        renderSentenceList();
+      });
+    }
+    if (showSpeakingBtn) {
+      showSpeakingBtn.addEventListener("click", () => {
+        categoryFilter = CATEGORY_SPEAKING;
+        renderSentenceList();
+      });
+    }
+    if (showUncategorizedBtn) {
+      showUncategorizedBtn.addEventListener("click", () => {
+        categoryFilter = "uncategorized";
         renderSentenceList();
       });
     }
