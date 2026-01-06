@@ -448,6 +448,10 @@
           </div>
 
           <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));">
+            <button class="btn ghost" id="speakingCorrectBtn" style="display:none;">Tomorrow</button>
+            <button class="btn ghost" id="speakingLearnedBtn" style="display:none;">Week</button>
+            <button class="btn ghost" id="speakingMonthBtn" style="display:none;">Month</button>
+            <button class="btn ghost" id="speakingArchivedBtn" style="display:none;">Archived</button>
             <button class="btn" id="speakingCheckBtn">Check</button>
           </div>
         </div>
@@ -505,6 +509,10 @@
     const speakingPrompt = document.getElementById("speakingPrompt");
     const speakingReveal = document.getElementById("speakingReveal");
     const speakingCheckBtn = document.getElementById("speakingCheckBtn");
+    const speakingCorrectBtn = document.getElementById("speakingCorrectBtn");
+    const speakingLearnedBtn = document.getElementById("speakingLearnedBtn");
+    const speakingMonthBtn = document.getElementById("speakingMonthBtn");
+    const speakingArchivedBtn = document.getElementById("speakingArchivedBtn");
     const speakingProgress = document.getElementById("speakingProgress");
 
     const views = document.querySelectorAll(".view");
@@ -1326,6 +1334,18 @@
       speakingReveal.className = "overlay";
       speakingCheckBtn.textContent = "Check";
       speakingCheckBtn.dataset.mode = "check";
+      if (speakingCorrectBtn) {
+        speakingCorrectBtn.style.display = "none";
+      }
+      if (speakingLearnedBtn) {
+        speakingLearnedBtn.style.display = "none";
+      }
+      if (speakingMonthBtn) {
+        speakingMonthBtn.style.display = "none";
+      }
+      if (speakingArchivedBtn) {
+        speakingArchivedBtn.style.display = "none";
+      }
       speakingPrompt.textContent = "";
     }
 
@@ -1498,6 +1518,13 @@
       utterance.lang = "en-US";
       applyChromeEnglishVoice(utterance);
       synth.speak(utterance);
+    }
+
+    function speakSpeakingSentence(rate = 1) {
+      const item = sentences[speakingIndex];
+      const text = item ? (item.sentence || "") : "";
+      if (!text) return;
+      speakText(text, rate);
     }
 
     let toastTimer = null;
@@ -1861,6 +1888,18 @@
         speakingReveal.textContent = item.sentence || "";
         speakingCheckBtn.textContent = "Next";
         speakingCheckBtn.dataset.mode = "next";
+        if (speakingCorrectBtn) {
+          speakingCorrectBtn.style.display = "inline-flex";
+        }
+        if (speakingLearnedBtn) {
+          speakingLearnedBtn.style.display = "inline-flex";
+        }
+        if (speakingMonthBtn) {
+          speakingMonthBtn.style.display = "inline-flex";
+        }
+        if (speakingArchivedBtn) {
+          speakingArchivedBtn.style.display = "inline-flex";
+        }
         speakText(item.sentence || "", 1);
       });
     }
@@ -1972,6 +2011,96 @@
       });
     }
 
+    if (speakingLearnedBtn) {
+      speakingLearnedBtn.addEventListener("click", () => {
+        if (sentences.length === 0 || speakingIndex < 0) return;
+        const learnedItem = sentences[speakingIndex];
+        if (learnedItem) {
+          if (learnedItem.monthUntil) {
+            delete learnedItem.monthUntil;
+          }
+          if (learnedItem.correctUntil) {
+            delete learnedItem.correctUntil;
+          }
+          learnedItem.learnedUntil = Date.now() + learnedCooldownMs;
+        }
+        saveSets();
+        speakingRemainingIndices = speakingRemainingIndices.filter((i) => i !== speakingIndex);
+        speakingIndex = -1;
+        rebuildQueue();
+        rebuildSpeakingQueue();
+        renderSentenceList();
+        renderPracticeSelect();
+        renderSpeakingSelect();
+      });
+    }
+
+    if (speakingMonthBtn) {
+      speakingMonthBtn.addEventListener("click", () => {
+        if (sentences.length === 0 || speakingIndex < 0) return;
+        const monthItem = sentences[speakingIndex];
+        if (monthItem) {
+          if (monthItem.learnedUntil) {
+            delete monthItem.learnedUntil;
+          }
+          if (monthItem.correctUntil) {
+            delete monthItem.correctUntil;
+          }
+          monthItem.monthUntil = Date.now() + monthCooldownMs;
+        }
+        saveSets();
+        speakingRemainingIndices = speakingRemainingIndices.filter((i) => i !== speakingIndex);
+        speakingIndex = -1;
+        rebuildQueue();
+        rebuildSpeakingQueue();
+        renderSentenceList();
+        renderPracticeSelect();
+        renderSpeakingSelect();
+      });
+    }
+
+    if (speakingCorrectBtn) {
+      speakingCorrectBtn.addEventListener("click", () => {
+        if (sentences.length === 0 || speakingIndex < 0) return;
+        const correctItem = sentences[speakingIndex];
+        if (correctItem) {
+          if (correctItem.learnedUntil) {
+            delete correctItem.learnedUntil;
+          }
+          if (correctItem.monthUntil) {
+            delete correctItem.monthUntil;
+          }
+          correctItem.correctUntil = getNextJstMidnightTimestamp();
+        }
+        saveSets();
+        speakingRemainingIndices = speakingRemainingIndices.filter((i) => i !== speakingIndex);
+        speakingIndex = -1;
+        rebuildQueue();
+        rebuildSpeakingQueue();
+        renderSentenceList();
+        renderPracticeSelect();
+        renderSpeakingSelect();
+      });
+    }
+
+    if (speakingArchivedBtn) {
+      speakingArchivedBtn.addEventListener("click", () => {
+        if (sentences.length === 0 || speakingIndex < 0) return;
+        const archivedItem = sentences[speakingIndex];
+        if (archivedItem) {
+          archivedItem.archivedAt = Date.now();
+        }
+        saveSets();
+        speakingRemainingIndices = speakingRemainingIndices.filter((i) => i !== speakingIndex);
+        speakingIndex = -1;
+        rebuildQueue();
+        rebuildSpeakingQueue();
+        renderSentenceList();
+        renderPracticeSelect();
+        renderSpeakingSelect();
+      });
+    }
+
     tabBtns.forEach((btn) => {
       btn.addEventListener("click", () => {
         tabBtns.forEach((b) => b.classList.remove("active"));
@@ -1985,28 +2114,56 @@
       const key = event.key.toLowerCase();
       const hasCtrl = event.ctrlKey || event.metaKey;
       const combo = hasCtrl && event.shiftKey;
+      const activeView = document.querySelector(".view.active");
+      const isSpeaking = activeView && activeView.id === "speaking";
       if (combo && key === "z") {
         event.preventDefault();
         event.stopPropagation();
         event.stopImmediatePropagation();
-        speakSentenceOnce(1);
+        if (isSpeaking) {
+          speakSpeakingSentence(1);
+        } else {
+          speakSentenceOnce(1);
+        }
       }
       if (combo && key === "s") {
         event.preventDefault();
-        speakSentence(0.7);
+        if (isSpeaking) {
+          speakSpeakingSentence(0.7);
+        } else {
+          speakSentence(0.7);
+        }
       }
       if (combo && key === "c") {
-        if (checkBtn.dataset.mode === "next" && !checkBtn.disabled) {
+        if (isSpeaking && speakingCheckBtn && speakingCheckBtn.dataset.mode === "next" && !speakingCheckBtn.disabled) {
+          event.preventDefault();
+          speakingCheckBtn.click();
+          return;
+        }
+        if (isSpeaking && speakingCheckBtn && speakingCheckBtn.dataset.mode === "check" && !speakingCheckBtn.disabled) {
+          event.preventDefault();
+          speakingCheckBtn.click();
+          return;
+        }
+        if (!isSpeaking && checkBtn.dataset.mode === "next" && !checkBtn.disabled) {
           event.preventDefault();
           checkBtn.click();
           return;
         }
-        if (checkBtn.dataset.mode === "check" && !checkBtn.disabled) {
+        if (!isSpeaking && checkBtn.dataset.mode === "check" && !checkBtn.disabled) {
           event.preventDefault();
           checkBtn.click();
           return;
         }
-        if (copyRevealToClipboard()) {
+        if (isSpeaking && speakingReveal) {
+          const text = speakingReveal.textContent.trim();
+          if (text) {
+            copyToClipboard(text);
+            event.preventDefault();
+          }
+          return;
+        }
+        if (!isSpeaking && copyRevealToClipboard()) {
           event.preventDefault();
         }
       }
@@ -2014,14 +2171,21 @@
         event.preventDefault();
         event.stopPropagation();
         event.stopImmediatePropagation();
-        if (!playBtn.disabled) {
+        if (isSpeaking) {
+          speakSpeakingSentence(1);
+          setTimeout(() => speakingCheckBtn?.focus(), 0);
+        } else if (!playBtn.disabled) {
           speakSentence(1);
           setTimeout(() => checkBtn.focus(), 0);
         }
       }
       if (combo && key === "n") {
         event.preventDefault();
-        if (checkBtn.dataset.mode === "next" && !checkBtn.disabled) {
+        if (isSpeaking && speakingCheckBtn && speakingCheckBtn.dataset.mode === "next" && !speakingCheckBtn.disabled) {
+          speakingCheckBtn.click();
+          return;
+        }
+        if (!isSpeaking && checkBtn.dataset.mode === "next" && !checkBtn.disabled) {
           checkBtn.click();
         }
       }
@@ -2029,7 +2193,11 @@
         event.preventDefault();
         event.stopPropagation();
         event.stopImmediatePropagation();
-        if (learnedBtn.style.display !== "none" && !learnedBtn.disabled) {
+        if (isSpeaking && speakingLearnedBtn && speakingLearnedBtn.style.display !== "none" && !speakingLearnedBtn.disabled) {
+          speakingLearnedBtn.click();
+          return;
+        }
+        if (!isSpeaking && learnedBtn.style.display !== "none" && !learnedBtn.disabled) {
           learnedBtn.click();
         }
       }
@@ -2037,7 +2205,11 @@
         event.preventDefault();
         event.stopPropagation();
         event.stopImmediatePropagation();
-        if (archivedBtn.style.display !== "none" && !archivedBtn.disabled) {
+        if (isSpeaking && speakingArchivedBtn && speakingArchivedBtn.style.display !== "none" && !speakingArchivedBtn.disabled) {
+          speakingArchivedBtn.click();
+          return;
+        }
+        if (!isSpeaking && archivedBtn.style.display !== "none" && !archivedBtn.disabled) {
           archivedBtn.click();
         }
       }
@@ -2045,7 +2217,11 @@
         event.preventDefault();
         event.stopPropagation();
         event.stopImmediatePropagation();
-        if (monthBtn.style.display !== "none" && !monthBtn.disabled) {
+        if (isSpeaking && speakingMonthBtn && speakingMonthBtn.style.display !== "none" && !speakingMonthBtn.disabled) {
+          speakingMonthBtn.click();
+          return;
+        }
+        if (!isSpeaking && monthBtn.style.display !== "none" && !monthBtn.disabled) {
           monthBtn.click();
         }
       }
@@ -2053,7 +2229,11 @@
         event.preventDefault();
         event.stopPropagation();
         event.stopImmediatePropagation();
-        if (correctBtn.style.display !== "none" && !correctBtn.disabled) {
+        if (isSpeaking && speakingCorrectBtn && speakingCorrectBtn.style.display !== "none" && !speakingCorrectBtn.disabled) {
+          speakingCorrectBtn.click();
+          return;
+        }
+        if (!isSpeaking && correctBtn.style.display !== "none" && !correctBtn.disabled) {
           correctBtn.click();
         }
       }
