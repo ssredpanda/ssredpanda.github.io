@@ -1422,15 +1422,13 @@
       const total = getDueIndicesByCategory(CATEGORY_DICTATION).length;
       const done = total - remainingIndices.length - (currentIndex >= 0 ? 1 : 0);
       const progressEl = document.getElementById("progressText");
-      const active = getActiveSet();
-      const label = active ? `${active.name}` : "Current Set";
       if (progressEl) {
         if (total === 0) {
-          progressEl.textContent = `${label}: 0 due`;
+          progressEl.textContent = "0 due";
         } else if (currentIndex < 0 && remainingIndices.length === 0) {
-          progressEl.textContent = `${label}: ${total} / ${total} completed`;
+          progressEl.textContent = `${total} / ${total} completed`;
         } else {
-          progressEl.textContent = `${label}: ${done + 1} / ${total}`;
+          progressEl.textContent = `${done + 1} / ${total}`;
         }
       }
     }
@@ -1439,14 +1437,12 @@
       if (!speakingProgress) return;
       const total = getDueIndicesByCategory(CATEGORY_SPEAKING).length;
       const done = total - speakingRemainingIndices.length - (speakingIndex >= 0 ? 1 : 0);
-      const active = getActiveSet();
-      const label = active ? `${active.name}` : "Current Set";
       if (total === 0) {
-        speakingProgress.textContent = `${label}: 0 due`;
+        speakingProgress.textContent = "0 due";
       } else if (speakingIndex < 0 && speakingRemainingIndices.length === 0) {
-        speakingProgress.textContent = `${label}: ${total} / ${total} completed`;
+        speakingProgress.textContent = `${total} / ${total} completed`;
       } else {
-        speakingProgress.textContent = `${label}: ${done + 1} / ${total}`;
+        speakingProgress.textContent = `${done + 1} / ${total}`;
       }
     }
 
