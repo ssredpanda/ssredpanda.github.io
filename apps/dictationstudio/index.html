@@ -383,6 +383,11 @@
             <button class="btn ghost" id="showUncategorizedBtn">Uncategorized</button>
           </div>
           <div class="list" id="sentenceList"></div>
+          <div style="margin-top: 20px;">
+            <h4>History</h4>
+            <input id="historySearch" type="text" placeholder="Search recent 100 prompts" style="margin: 8px 0 12px;" />
+            <div class="list" id="historyList"></div>
+          </div>
         </div>
       </div>
     </section>
@@ -469,11 +474,15 @@
   <script>
     const storeKey = "dictation_sets_v1";
     const legacyStoreKey = "dictation_sentences_v1";
+    const historyStoreKey = "dictation_history_v1";
+    const historyMaxEntries = 100;
     const sentenceJpEl = document.getElementById("sentenceJp");
     const sentenceEnEl = document.getElementById("sentenceEn");
     const saveBtn = document.getElementById("saveBtn");
     const clearBtn = document.getElementById("clearBtn");
     const sentenceList = document.getElementById("sentenceList");
+    const historySearch = document.getElementById("historySearch");
+    const historyList = document.getElementById("historyList");
     const categoryDictationEl = document.getElementById("categoryDictation");
     const categorySpeakingEl = document.getElementById("categorySpeaking");
     const setSelects = document.querySelectorAll(".set-picker");
@@ -535,6 +544,7 @@
     let lastDueCount = 0;
     let lastSpeakingDueCount = 0;
     let editingIndex = -1;
+    let historyLog = [];
     const learnedCooldownMs = 7 * 24 * 60 * 60 * 1000;
     const monthCooldownMs = 30 * 24 * 60 * 60 * 1000;
     const jstOffsetMs = 9 * 60 * 60 * 1000;
@@ -666,6 +676,10 @@
       localStorage.setItem(storeKey, JSON.stringify(payload));
     }
 
+    function saveHistory() {
+      localStorage.setItem(historyStoreKey, JSON.stringify(historyLog));
+    }
+
     function isDuplicateEnglish(sentence, skipIndex = -1) {
       const target = normalizeText(sentence);
       if (!target) return false;
@@ -727,6 +741,20 @@
       rebuildQueue();
       rebuildSpeakingQueue();
       saveSets();
+    }
+
+    function loadHistory() {
+      const raw = localStorage.getItem(historyStoreKey);
+      if (!raw) {
+        historyLog = [];
+        return;
+      }
+      try {
+        const parsed = JSON.parse(raw);
+        historyLog = Array.isArray(parsed) ? parsed.slice(0, historyMaxEntries) : [];
+      } catch (err) {
+        historyLog = [];
+      }
     }
 
     function setActiveSet(id) {
@@ -1136,19 +1164,7 @@
         btn.addEventListener("click", (e) => {
           const idx = Number(e.currentTarget.dataset.editIndex);
           const item = sentences[idx];
-          if (!item) return;
-          editingIndex = idx;
-          sentenceJpEl.value = item.jp || "";
-          sentenceEnEl.value = item.sentence || "";
-          const categories = getSentenceCategories(item);
-          if (categoryDictationEl) {
-            categoryDictationEl.checked = categories.includes(CATEGORY_DICTATION);
-          }
-          if (categorySpeakingEl) {
-            categorySpeakingEl.checked = categories.includes(CATEGORY_SPEAKING);
-          }
-          saveBtn.textContent = "Update";
-          sentenceEnEl.focus();
+          startEditingSentence(item, idx);
         });
       });
 
@@ -1171,6 +1187,114 @@
           }
           saveSets();
           renderAll();
+        });
+      });
+    }
+
+    function formatHistoryTimestamp(timestamp) {
+      if (!timestamp) return "-";
+      const date = new Date(timestamp);
+      if (Number.isNaN(date.getTime())) return "-";
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, "0");
+      const d = String(date.getDate()).padStart(2, "0");
+      const hh = String(date.getHours()).padStart(2, "0");
+      const mm = String(date.getMinutes()).padStart(2, "0");
+      return `${y}-${m}-${d} ${hh}:${mm}`;
+    }
+
+    function renderHistoryList() {
+      if (!historyList) return;
+      historyList.innerHTML = "";
+      if (!historyLog || historyLog.length === 0) {
+        historyList.innerHTML = "<p>No history yet.</p>";
+        return;
+      }
+      const query = historySearch ? historySearch.value.trim().toLowerCase() : "";
+      const filtered = query
+        ? historyLog.filter((entry) => {
+            const jp = (entry.jp || "").toLowerCase();
+            const en = (entry.sentence || "").toLowerCase();
+            const setName = (entry.setName || "").toLowerCase();
+            return jp.includes(query) || en.includes(query) || setName.includes(query);
+          })
+        : historyLog;
+
+      if (filtered.length === 0) {
+        historyList.innerHTML = "<p>No history matches.</p>";
+        return;
+      }
+
+      filtered.forEach((entry) => {
+        const row = document.createElement("div");
+        row.className = "list-item";
+        row.innerHTML = `
+          <div>
+            <small>${entry.jp ? entry.jp : "-"}</small><br />
+            <small>${entry.sentence ? entry.sentence : "-"}</small>
+          </div>
+          <div>
+            <span class="chip">${entry.setName || "Unknown Set"}</span>
+            <span class="chip">${entry.category === CATEGORY_SPEAKING ? "Speaking" : "Dictation"}</span>
+            <span class="chip">${formatHistoryTimestamp(entry.timestamp)}</span>
+            <button class="btn ghost" data-history-action="play" data-history-id="${entry.id}">Play</button>
+            <button class="btn ghost" data-history-action="edit" data-history-id="${entry.id}">Edit</button>
+            <button class="btn ghost" data-history-action="delete" data-history-id="${entry.id}">Delete</button>
+          </div>
+        `;
+        historyList.appendChild(row);
+      });
+
+      historyList.querySelectorAll("button[data-history-action]").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          const action = e.currentTarget.dataset.historyAction;
+          const entryId = e.currentTarget.dataset.historyId;
+          const entry = historyLog.find((item) => item.id === entryId);
+          if (!entry) return;
+          if (action === "play") {
+            const target = findHistoryTarget(entry);
+            const text = target?.item?.sentence || entry.sentence || "";
+            if (!text) {
+              showToast("No English sentence");
+              return;
+            }
+            speakText(text, 1);
+            return;
+          }
+          if (action === "edit") {
+            const target = findHistoryTarget(entry);
+            if (!target || target.index < 0) {
+              showToast("Sentence not found in set.");
+              return;
+            }
+            if (target.set.id !== activeSetId) {
+              setActiveSet(target.set.id);
+            }
+            const activeTarget = findHistoryTarget(entry);
+            if (!activeTarget || activeTarget.index < 0) {
+              showToast("Sentence not found in set.");
+              return;
+            }
+            startEditingSentence(activeTarget.item, activeTarget.index);
+            return;
+          }
+          if (action === "delete") {
+            const target = findHistoryTarget(entry);
+            if (!target || target.index < 0) {
+              showToast("Sentence not found in set.");
+              return;
+            }
+            const name = target.set.name || "Untitled Set";
+            const confirmed = window.confirm(`Delete sentence from "${name}"?`);
+            if (!confirmed) return;
+            target.set.sentences.splice(target.index, 1);
+            saveSets();
+            if (target.set.id === activeSetId) {
+              refreshActiveSetState();
+            } else {
+              renderHistoryList();
+            }
+          }
         });
       });
     }
@@ -1349,6 +1473,68 @@
       speakingPrompt.textContent = "";
     }
 
+    function startEditingSentence(item, index) {
+      if (!item) return;
+      editingIndex = index;
+      sentenceJpEl.value = item.jp || "";
+      sentenceEnEl.value = item.sentence || "";
+      const categories = getSentenceCategories(item);
+      if (categoryDictationEl) {
+        categoryDictationEl.checked = categories.includes(CATEGORY_DICTATION);
+      }
+      if (categorySpeakingEl) {
+        categorySpeakingEl.checked = categories.includes(CATEGORY_SPEAKING);
+      }
+      saveBtn.textContent = "Update";
+      sentenceEnEl.focus();
+    }
+
+    function findHistoryTarget(entry) {
+      if (!entry) return null;
+      const set = sets.find((item) => item.id === entry.setId)
+        || sets.find((item) => item.name === entry.setName);
+      if (!set) return null;
+      const targetSentence = (entry.sentence || "").trim();
+      const targetJp = (entry.jp || "").trim();
+      const normalizedSentence = normalizeText(targetSentence);
+      let index = -1;
+      if (targetSentence) {
+        index = set.sentences.findIndex((item) => {
+          const itemSentence = normalizeText(item.sentence || "");
+          if (!itemSentence || itemSentence !== normalizedSentence) return false;
+          if (targetJp) {
+            const itemJp = (item.jp || "").trim();
+            if (itemJp !== targetJp) return false;
+          }
+          return true;
+        });
+      }
+      if (index < 0 && targetJp) {
+        index = set.sentences.findIndex((item) => (item.jp || "").trim() === targetJp);
+      }
+      if (index < 0) return { set, index: -1, item: null };
+      return { set, index, item: set.sentences[index] };
+    }
+
+    function logHistory(item, category) {
+      if (!item) return;
+      const active = getActiveSet();
+      historyLog.unshift({
+        id: `history_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`,
+        timestamp: Date.now(),
+        setId: active ? active.id : "",
+        setName: active ? active.name : "",
+        category,
+        sentence: item.sentence || "",
+        jp: item.jp || ""
+      });
+      if (historyLog.length > historyMaxEntries) {
+        historyLog.length = historyMaxEntries;
+      }
+      saveHistory();
+      renderHistoryList();
+    }
+
     function pickRandomSentence() {
       if (sentences.length === 0) {
         currentIndex = -1;
@@ -1365,6 +1551,7 @@
       resetPracticeUI();
       updateProgress();
       playBtn.focus();
+      logHistory(sentences[currentIndex], CATEGORY_DICTATION);
     }
 
     function pickSpeakingSentence() {
@@ -1386,6 +1573,7 @@
       resetSpeakingUI();
       speakingPrompt.textContent = item?.jp || item?.sentence || "";
       updateSpeakingProgress();
+      logHistory(item, CATEGORY_SPEAKING);
     }
 
     function showCompletedUI(isDeferred = false) {
@@ -1617,6 +1805,7 @@
       renderSentenceList();
       renderPracticeSelect();
       renderSpeakingSelect();
+      renderHistoryList();
     }
 
     saveBtn.addEventListener("click", () => {
@@ -2106,6 +2295,12 @@
       });
     });
 
+    if (historySearch) {
+      historySearch.addEventListener("input", () => {
+        renderHistoryList();
+      });
+    }
+
     document.addEventListener("keydown", (event) => {
       const key = event.key.toLowerCase();
       const hasCtrl = event.ctrlKey || event.metaKey;
@@ -2236,6 +2431,7 @@
     }, true);
 
     loadSets();
+    loadHistory();
     renderAll();
   </script>
 </body>
