@@ -186,7 +186,7 @@
 
     .list-item {
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       justify-content: space-between;
       gap: 12px;
       padding: 12px;
@@ -996,7 +996,7 @@
 
       const formatPreview = (text) => {
         if (!text) return "-";
-        return text.length > 48 ? `${text.slice(0, 48)}…` : text;
+        return text.length > 120 ? `${text.slice(0, 120)}…` : text;
       };
       const buildSentencePreview = (item) => {
         const jp = typeof item.jp === "string" ? item.jp.trim() : "";
